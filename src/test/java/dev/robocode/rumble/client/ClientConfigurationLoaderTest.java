@@ -1,6 +1,7 @@
 package dev.robocode.rumble.client;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import org.junit.jupiter.api.Tag;
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Set;
 
 class ClientConfigurationLoaderTest {
     private final ClientConfigurationLoader loader = new ClientConfigurationLoader();
@@ -16,10 +18,14 @@ class ClientConfigurationLoaderTest {
     @Test
     @Tag("Unit")
     void testUnitPositive_loadsValidPracticeConfiguration() throws IOException {
-        final ClientConfiguration configuration = loader.load(writeConfiguration("practice", "registered-client"));
+        final Path configurationPath = writeConfiguration("practice", "registered-client");
+        final ClientConfiguration configuration = loader.load(configurationPath);
 
         assertEquals("registered-client", configuration.clientId());
         assertEquals(ClientMode.PRACTICE, configuration.mode());
+        assertEquals(Set.of(GameType.ONE_VS_ONE, GameType.TWIN_DUEL, GameType.MELEE), configuration.gameTypes());
+        assertEquals(configurationPath.getParent().resolve(".rumble-client").toAbsolutePath().normalize(),
+                configuration.workDirectory());
     }
 
     @Test
@@ -70,6 +76,21 @@ class ClientConfigurationLoaderTest {
         assertThrows(IllegalArgumentException.class, () -> loader.load(configurationPath));
     }
 
+    @Test
+    @Tag("Unit")
+    void testUnitPositive_defaultsWorkDirectoryForExistingSchemaOneConfiguration() throws IOException {
+        final Path configurationPath = Files.createTempFile("rumble-client", ".json");
+        final String legacyConfiguration = validConfiguration("ranked", "registered-client")
+                .replace(",\n  \"workDirectory\": \".rumble-client\"", "");
+        assertFalse(legacyConfiguration.contains("workDirectory"));
+        Files.writeString(configurationPath, legacyConfiguration);
+
+        final ClientConfiguration configuration = loader.load(configurationPath);
+
+        assertEquals(configurationPath.getParent().resolve(".rumble-client").toAbsolutePath().normalize(),
+                configuration.workDirectory());
+    }
+
     private static Path writeConfiguration(final String mode, final String clientId) throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration(mode, clientId));
@@ -86,7 +107,8 @@ class ClientConfigurationLoaderTest {
                   "myBots": [],
                   "gameTypes": ["1v1", "twinduel", "melee"],
                   "battlesPerSession": 50,
-                  "mode": "%s"
+                  "mode": "%s",
+                  "workDirectory": ".rumble-client"
                 }
                 """.formatted(clientId, mode);
     }
