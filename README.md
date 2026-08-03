@@ -12,7 +12,7 @@ Install JDK 17, then run:
 ./gradlew build
 ```
 
-The first implementation stage validates configuration and mode separation. Ranked synchronization, Battle Runner execution, persistence, issue-ops transport, and the runtime container are added in the subsequent CH-012 tasks.
+The first implementation stage validates configuration and mode separation. Run `./gradlew run --args="--validate-config"` after configuring the client. Ranked synchronization, Battle Runner execution, persistence, issue-ops transport, and the runtime container are added in the subsequent CH-012 tasks.
 
 ## Configuration
 
