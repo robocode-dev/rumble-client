@@ -12,6 +12,7 @@ import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Set;
 
@@ -20,7 +21,6 @@ import java.util.Set;
  */
 final class ClientConfigurationLoader {
     private static final int SUPPORTED_SCHEMA_VERSION = 1;
-    private static final Set<String> SUPPORTED_GAME_TYPES = Set.of("1v1", "twinduel", "melee");
     private static final String EXAMPLE_CLIENT_ID = "replace-with-registered-client-id";
 
     /**
@@ -34,16 +34,20 @@ final class ClientConfigurationLoader {
     ClientConfiguration load(final Path configurationPath) throws IOException {
         final JsonObject configuration = parse(configurationPath);
         validateSchemaVersion(configuration);
-        validateHttpsUri(configuration, "botsRepo");
-        validateHttpsUri(configuration, "dataRepo");
+        final URI botsRepository = parseHttpsUri(configuration, "botsRepo");
+        final URI dataRepository = parseHttpsUri(configuration, "dataRepo");
         final String clientId = requiredString(configuration, "clientId");
         if (clientId.equals(EXAMPLE_CLIENT_ID)) {
             throw new IllegalArgumentException("clientId must replace the example value");
         }
-        validateStringArray(configuration, "myBots", Set.of(), false);
-        validateStringArray(configuration, "gameTypes", SUPPORTED_GAME_TYPES, true);
-        validatePositiveInteger(configuration, "battlesPerSession");
-        return new ClientConfiguration(clientId, parseMode(requiredString(configuration, "mode")));
+        final Set<String> myBots = parseStringSet(configuration, "myBots", false);
+        final Set<GameType> gameTypes = parseGameTypes(configuration);
+        final int battlesPerSession = parsePositiveInteger(configuration, "battlesPerSession");
+        final ClientMode mode = parseMode(requiredString(configuration, "mode"));
+        final Path workDirectory = parseWorkDirectory(configurationPath,
+                optionalString(configuration, "workDirectory", ".rumble-client"));
+        return new ClientConfiguration(botsRepository, dataRepository, clientId, myBots, gameTypes,
+                battlesPerSession, mode, workDirectory);
     }
 
     private static JsonObject parse(final Path configurationPath) throws IOException {
@@ -65,7 +69,7 @@ final class ClientConfigurationLoader {
         }
     }
 
-    private static void validateHttpsUri(final JsonObject configuration, final String fieldName) {
+    private static URI parseHttpsUri(final JsonObject configuration, final String fieldName) {
         final String value = requiredString(configuration, fieldName);
         try {
             final URI uri = new URI(value);
@@ -75,13 +79,14 @@ final class ClientConfigurationLoader {
             if (uri.getRawUserInfo() != null) {
                 throw new IllegalArgumentException(fieldName + " must not contain user credentials");
             }
+            return uri;
         } catch (URISyntaxException exception) {
             throw new IllegalArgumentException(fieldName + " must be an absolute HTTPS URL", exception);
         }
     }
 
-    private static void validateStringArray(final JsonObject configuration, final String fieldName,
-                                            final Set<String> allowedValues, final boolean required) {
+    private static Set<String> parseStringSet(final JsonObject configuration, final String fieldName,
+                                              final boolean required) {
         final JsonElement element = requiredElement(configuration, fieldName);
         if (!element.isJsonArray()) {
             throw new IllegalArgumentException(fieldName + " must be an array of strings");
@@ -90,7 +95,7 @@ final class ClientConfigurationLoader {
         if (required && values.isEmpty()) {
             throw new IllegalArgumentException(fieldName + " must contain at least one value");
         }
-        final Set<String> uniqueValues = new HashSet<>();
+        final Set<String> uniqueValues = new LinkedHashSet<>();
         for (final JsonElement value : values) {
             if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString() || value.getAsString().isBlank()) {
                 throw new IllegalArgumentException(fieldName + " must be an array of non-blank strings");
@@ -98,17 +103,38 @@ final class ClientConfigurationLoader {
             if (!uniqueValues.add(value.getAsString())) {
                 throw new IllegalArgumentException(fieldName + " must not contain duplicate values");
             }
-            if (!allowedValues.isEmpty() && !allowedValues.contains(value.getAsString())) {
-                throw new IllegalArgumentException(fieldName + " contains unsupported value: " + value.getAsString());
-            }
         }
+        return Set.copyOf(uniqueValues);
     }
 
-    private static void validatePositiveInteger(final JsonObject configuration, final String fieldName) {
+    private static Set<GameType> parseGameTypes(final JsonObject configuration) {
+        final Set<GameType> gameTypes = new HashSet<>();
+        for (final String value : parseStringSet(configuration, "gameTypes", true)) {
+            final GameType gameType = GameType.fromContractName(value);
+            if (!gameTypes.add(gameType)) {
+                throw new IllegalArgumentException("gameTypes must not contain duplicate values");
+            }
+        }
+        return Set.copyOf(gameTypes);
+    }
+
+    private static int parsePositiveInteger(final JsonObject configuration, final String fieldName) {
         final JsonElement element = requiredElement(configuration, fieldName);
-        if (integerValue(element, fieldName) < 1) {
+        final int value = integerValue(element, fieldName);
+        if (value < 1) {
             throw new IllegalArgumentException(fieldName + " must be a positive integer");
         }
+        return value;
+    }
+
+    private static Path parseWorkDirectory(final Path configurationPath, final String value) {
+        final Path configured = Path.of(value);
+        final Path parent = configurationPath.toAbsolutePath().normalize().getParent();
+        final Path resolved = configured.isAbsolute() ? configured.normalize() : parent.resolve(configured).normalize();
+        if (resolved.getParent() == null) {
+            throw new IllegalArgumentException("workDirectory must not be a filesystem root");
+        }
+        return resolved;
     }
 
     private static int integerValue(final JsonElement element, final String fieldName) {
@@ -128,6 +154,15 @@ final class ClientConfigurationLoader {
             throw new IllegalArgumentException(fieldName + " must be a non-blank string");
         }
         return element.getAsString();
+    }
+
+    private static String optionalString(final JsonObject configuration, final String fieldName,
+                                         final String defaultValue) {
+        final JsonElement element = configuration.get(fieldName);
+        if (element == null || element.isJsonNull()) {
+            return defaultValue;
+        }
+        return requiredString(configuration, fieldName);
     }
 
     private static JsonElement requiredElement(final JsonObject configuration, final String fieldName) {

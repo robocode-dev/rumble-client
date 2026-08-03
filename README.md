@@ -12,11 +12,11 @@ Install JDK 17, then run:
 ./gradlew build
 ```
 
-The first implementation stage validates configuration and mode separation. Run `./gradlew run --args="--validate-config"` after configuring the client. Ranked synchronization, Battle Runner execution, persistence, issue-ops transport, and the runtime container are added in the subsequent CH-012 tasks.
+The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository and validate its engine pin, catalog, client registration, and matchmaking advice. Battle Runner execution, persistence, issue-ops transport, and the runtime container are added in subsequent CH-012 tasks.
 
 ## Configuration
 
-Copy `rumble-client.example.json` to `rumble-client.json` and set the registered `clientId`. Do not commit the resulting file or any token. A submission token is supplied at runtime only when issue-ops support is available.
+Copy `rumble-client.example.json` to `rumble-client.json`, set the registered `clientId`, and choose a `workDirectory` for local cache, journal, and replay evidence. Do not commit the resulting file or any token. A submission token is supplied at runtime only when issue-ops support is available.
 
 ## Contributing
 

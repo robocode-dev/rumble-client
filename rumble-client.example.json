@@ -6,5 +6,6 @@
   "myBots": [],
   "gameTypes": ["1v1", "twinduel", "melee"],
   "battlesPerSession": 50,
-  "mode": "ranked"
+  "mode": "ranked",
+  "workDirectory": ".rumble-client"
 }

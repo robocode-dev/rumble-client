@@ -18,7 +18,8 @@ class RumbleClientTest {
 
         RumbleClient.run(new String[] {"--help"}, new PrintStream(bytes));
 
-        assertTrue(bytes.toString().contains("Usage: rumble-client --validate-config [path]"));
+        assertTrue(bytes.toString().contains("rumble-client --validate-config [path]"));
+        assertTrue(bytes.toString().contains("rumble-client --sync [path]"));
     }
 
     @Test
