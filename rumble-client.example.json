@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "botsRepo": "https://github.com/robocode-dev/rumble-bots",
+  "dataRepo": "https://github.com/robocode-dev/rumble-data",
+  "clientId": "replace-with-registered-client-id",
+  "myBots": [],
+  "gameTypes": ["1v1", "twinduel", "melee"],
+  "battlesPerSession": 50,
+  "mode": "ranked"
+}

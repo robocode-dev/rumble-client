@@ -1,0 +1,9 @@
+.gradle/
+build/
+out/
+*.iml
+.idea/
+rumble-client.json
+evidence/
+journal/
+cache/

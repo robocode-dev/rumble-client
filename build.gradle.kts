@@ -1,0 +1,31 @@
+plugins {
+    application
+    java
+}
+
+group = providers.gradleProperty("group").get()
+version = providers.gradleProperty("version").get()
+
+java {
+    toolchain {
+        languageVersion.set(JavaLanguageVersion.of(17))
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation(platform("org.junit:junit-bom:5.11.4"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+}
+
+application {
+    mainClass.set("dev.robocode.rumble.client.RumbleClient")
+}
+
+tasks.test {
+    useJUnitPlatform()
+}
