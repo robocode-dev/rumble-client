@@ -3,6 +3,7 @@ package dev.robocode.rumble.client;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Immutable ranked input snapshot accepted from one Rumble data revision.
@@ -14,9 +15,10 @@ record RumbleSnapshot(URI canonicalDataRepository, String dataRevision, EnginePi
     }
 }
 
-record EnginePin(int behaviorVersion, String tankRoyaleVersion, String image,
+record EnginePin(int behaviorVersion, String tankRoyaleVersion, String image, Optional<String> clientImage,
                  Map<GameType, GameTypeSettings> gameTypes) {
     EnginePin {
+        clientImage = java.util.Objects.requireNonNull(clientImage, "clientImage");
         gameTypes = Map.copyOf(gameTypes);
     }
 }

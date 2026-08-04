@@ -31,6 +31,8 @@ class RumbleSynchronizerTest {
         assertEquals(CANONICAL_REPOSITORY, snapshot.canonicalDataRepository());
         assertEquals("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb", snapshot.dataRevision());
         assertEquals(1, snapshot.engine().behaviorVersion());
+        assertEquals(Optional.of("ghcr.io/example/rumble-client@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                snapshot.engine().clientImage());
         assertEquals("alice", snapshot.registration().account());
         assertEquals(List.of(PREVIOUS_REPOSITORY, CANONICAL_REPOSITORY), repositories.requestedRepositories());
         assertEquals(1, snapshot.advice().get(GameType.ONE_VS_ONE).priorityPairs().size());
@@ -42,6 +44,33 @@ class RumbleSynchronizerTest {
         final InMemoryRepositoryReader repositories = validRepositories();
         repositories.replace(CANONICAL_REPOSITORY, "matchmaking/matches_needed-1v1.json",
                 validAdvice().replace("\"schemaVersion\": 1", "\"schemaVersion\": 2"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new RumbleSynchronizer(repositories).synchronize(configuration()));
+    }
+
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationPositive_acceptsEnginePinWithoutOptionalClientImage() throws IOException {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        repositories.replace(CANONICAL_REPOSITORY, "engine.json",
+                repositories.read(CANONICAL_REPOSITORY, "engine.json").replace(
+                        "  \"clientImage\": \"ghcr.io/example/rumble-client@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\n",
+                        ""));
+
+        final RumbleSnapshot snapshot = new RumbleSynchronizer(repositories).synchronize(configuration());
+
+        assertEquals(Optional.empty(), snapshot.engine().clientImage());
+    }
+
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationNegative_rejectsMutableClientImageReference() {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        repositories.replace(CANONICAL_REPOSITORY, "engine.json",
+                repositories.read(CANONICAL_REPOSITORY, "engine.json").replace(
+                        "ghcr.io/example/rumble-client@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                        "ghcr.io/example/rumble-client:latest"));
 
         assertThrows(IllegalArgumentException.class,
                 () -> new RumbleSynchronizer(repositories).synchronize(configuration()));
@@ -132,6 +161,7 @@ class RumbleSynchronizerTest {
                   "behaviorVersion": 1,
                   "tankRoyaleVersion": "unreleased",
                   "image": "ghcr.io/example/tank-royale:unreleased",
+                  "clientImage": "ghcr.io/example/rumble-client@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
                   "gameTypes": {"1v1": {"rounds": 35, "battlefield": [800, 600], "participants": 2}}
                 }
                 """);

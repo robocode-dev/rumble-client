@@ -110,7 +110,7 @@ class RankedBattleSelectorTest {
             advice.put(gameType, new MatchAdvice(gameType, "a".repeat(64), 6, pairs));
         }
         return new RumbleSnapshot(URI.create("https://github.com/example/rumble-data"), "b".repeat(40),
-                new EnginePin(1, "unreleased", "example/image", settings),
+                new EnginePin(1, "unreleased", "example/image", java.util.Optional.empty(), settings),
                 new BotCatalog(URI.create("https://github.com/example/rumble-bots"), "c".repeat(40), bots),
                 new ClientRegistration("alice", "alice-desktop"), advice);
     }
