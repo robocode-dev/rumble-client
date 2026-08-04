@@ -75,7 +75,8 @@ final class JsonContract {
         final String value = string(field);
         try {
             final URI uri = new URI(value);
-            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getRawUserInfo() != null) {
+            if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getRawUserInfo() != null
+                    || uri.getRawQuery() != null || uri.getRawFragment() != null) {
                 throw invalid(document + "." + field + " must be an absolute credential-free HTTPS URL");
             }
             return uri;

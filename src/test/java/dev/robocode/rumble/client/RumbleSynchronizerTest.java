@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -72,8 +73,46 @@ class RumbleSynchronizerTest {
                 () -> new RumbleSynchronizer(repositories).synchronize(configuration()));
     }
 
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationNegative_rejectsCredentialBearingCanonicalPointer() {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        repositories.replace(PREVIOUS_REPOSITORY, "wellknown/rumble.json",
+                repositories.read(PREVIOUS_REPOSITORY, "wellknown/rumble.json")
+                        .replace("https://github.com/example/rumble-data",
+                                "https://github.com/example/rumble-data?token=secret"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new RumbleSynchronizer(repositories).synchronize(configuration()));
+    }
+
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationNegative_rejectsCatalogBotPathTraversal() {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        repositories.replace(CANONICAL_REPOSITORY, "catalog.json",
+                repositories.read(CANONICAL_REPOSITORY, "catalog.json")
+                        .replace("bots/java/Alpha", "bots/../Alpha"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new RumbleSynchronizer(repositories).synchronize(configuration()));
+    }
+
+    @Test
+    @Tag("Unit")
+    void testUnitNegative_rejectsSynchronizationInPracticeModeBeforeRepositoryAccess() {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        final ClientConfiguration practiceConfiguration = new ClientConfiguration(BOTS_REPOSITORY,
+                PREVIOUS_REPOSITORY, Optional.empty(), Set.of(), Set.of(GameType.ONE_VS_ONE), 10,
+                ClientMode.PRACTICE, Path.of("work"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new RumbleSynchronizer(repositories).synchronize(practiceConfiguration));
+        assertEquals(List.of(), repositories.requestedRepositories());
+    }
+
     private static ClientConfiguration configuration() {
-        return new ClientConfiguration(BOTS_REPOSITORY, PREVIOUS_REPOSITORY, "alice-desktop", Set.of(),
+        return new ClientConfiguration(BOTS_REPOSITORY, PREVIOUS_REPOSITORY, Optional.of("alice-desktop"), Set.of(),
                 Set.of(GameType.ONE_VS_ONE), 10, ClientMode.RANKED, Path.of("work"));
     }
 

@@ -24,6 +24,9 @@ final class RumbleSynchronizer {
     }
 
     RumbleSnapshot synchronize(final ClientConfiguration configuration) throws IOException {
+        if (configuration.mode() != ClientMode.RANKED) {
+            throw new IllegalArgumentException("Ranked synchronization requires ranked mode");
+        }
         try (RepositoryReader.RepositoryCheckout checkout = openCanonical(configuration.dataRepository())) {
             return parser.parse(checkout, configuration);
         }

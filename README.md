@@ -16,7 +16,7 @@ The client validates configuration and can synchronize the current ranked input 
 
 ## Configuration
 
-Copy `rumble-client.example.json` to `rumble-client.json`, set the registered `clientId`, and choose a `workDirectory` for local cache, journal, and replay evidence. Do not commit the resulting file or any token. A submission token is supplied at runtime only when issue-ops support is available.
+Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires a registered `clientId`; practice mode may omit it. The optional `workDirectory` selects the local cache, journal, and replay-evidence root and defaults to `.rumble-client` beside the configuration file. Do not commit the resulting file or any token. A submission token is supplied at runtime only when issue-ops support is available.
 
 ## Contributing
 
