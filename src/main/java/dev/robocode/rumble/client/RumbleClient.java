@@ -45,11 +45,13 @@ public final class RumbleClient {
         final Path configurationPath = arguments.length == 2 ? Path.of(arguments[1]) : DEFAULT_CONFIGURATION_PATH;
         final ClientConfiguration configuration = new ClientConfigurationLoader().load(configurationPath);
         if (arguments[0].equals(SYNCHRONIZE_OPTION)) {
-            final RumbleSnapshot snapshot = new RumbleSynchronizer(new GitRepositoryReader())
-                    .synchronize(configuration);
+            final GitRepositoryReader repositoryReader = new GitRepositoryReader();
+            final RumbleSnapshot snapshot = new RumbleSynchronizer(repositoryReader).synchronize(configuration);
+            final PreparedBotCache botCache = new BotCachePreparer(repositoryReader).prepare(snapshot, configuration);
             output.printf("Synchronized %s at %s.%n", snapshot.canonicalDataRepository(), snapshot.dataRevision());
-            output.printf("Accepted behavior version %d, %d active bots, and advice for %d game types.%n",
-                    snapshot.engine().behaviorVersion(), snapshot.catalog().activeBots().size(), snapshot.advice().size());
+            output.printf("Accepted behavior version %d, cached %d active bots at %s, and advice for %d game types.%n",
+                    snapshot.engine().behaviorVersion(), botCache.bots().size(), botCache.sourceCommit(),
+                    snapshot.advice().size());
             return;
         }
         output.printf("Configuration %s is valid for %s mode.%n", configurationPath, configuration.mode().displayName());
@@ -67,6 +69,6 @@ public final class RumbleClient {
         output.println("       rumble-client --help");
         output.println();
         output.println("Use --validate-config to check a local ranked or practice configuration.");
-        output.println("Use --sync to validate the current canonical ranked input snapshot.");
+        output.println("Use --sync to validate the current ranked snapshot and prepare its immutable bot cache.");
     }
 }
