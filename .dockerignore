@@ -1,0 +1,10 @@
+.git
+.github
+.gradle
+.idea
+build
+cache
+evidence
+journal
+out
+rumble-client.json

@@ -10,6 +10,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -19,6 +20,8 @@ import java.util.regex.Pattern;
 final class RumbleSnapshotParser {
     private static final Pattern COMMIT = Pattern.compile("[0-9a-f]{40}");
     private static final Pattern SHA_256 = Pattern.compile("sha256:[0-9a-f]{64}");
+    private static final Pattern CLIENT_IMAGE = Pattern.compile(
+            "ghcr\\.io/[a-z0-9._/-]+@sha256:[0-9a-f]{64}");
     private static final Pattern PROJECTION_ID = Pattern.compile("[0-9a-f]{64}");
     private static final Set<String> ADVICE_REASONS = Set.of("new-bot", "under-sampled");
 
@@ -41,6 +44,9 @@ final class RumbleSnapshotParser {
         final int behaviorVersion = contract.integer("behaviorVersion", 1);
         final String tankRoyaleVersion = contract.string("tankRoyaleVersion");
         final String image = contract.string("image");
+        final Optional<String> clientImage = Optional.ofNullable(contract.nullableString("clientImage"))
+                .map(value -> matching(value, CLIENT_IMAGE,
+                        "engine.json.clientImage must be an immutable GHCR SHA-256 reference"));
         final JsonObject gameTypesObject = contract.object("gameTypes");
         final Map<GameType, GameTypeSettings> gameTypes = new HashMap<>();
         for (final GameType gameType : selectedGameTypes) {
@@ -60,7 +66,7 @@ final class RumbleSnapshotParser {
             final int height = arrayInteger(battlefield, 1, "engine.json battlefield height", 1);
             gameTypes.put(gameType, new GameTypeSettings(rounds, width, height, participants));
         }
-        return new EnginePin(behaviorVersion, tankRoyaleVersion, image, gameTypes);
+        return new EnginePin(behaviorVersion, tankRoyaleVersion, image, clientImage, gameTypes);
     }
 
     private static BotCatalog parseCatalog(final String json, final URI expectedBotsRepository) {

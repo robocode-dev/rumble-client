@@ -87,7 +87,7 @@ class BotCachePreparerTest {
                 SOURCE_COMMIT, Map.of(bot.displayName(), bot));
         return new RumbleSnapshot(URI.create("https://github.com/example/rumble-data"),
                 "dddddddddddddddddddddddddddddddddddddddd",
-                new EnginePin(1, "unreleased", "example", Map.of()), catalog,
+                new EnginePin(1, "unreleased", "example", java.util.Optional.empty(), Map.of()), catalog,
                 new ClientRegistration("alice", "alice-desktop"), Map.of());
     }
 

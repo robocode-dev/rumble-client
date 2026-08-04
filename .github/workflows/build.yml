@@ -10,7 +10,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v5
@@ -18,4 +21,25 @@ jobs:
           distribution: temurin
           java-version: 17
           cache: gradle
-      - run: ./gradlew build
+      - if: runner.os != 'Windows'
+        run: ./gradlew build
+      - if: runner.os == 'Windows'
+        run: .\gradlew.bat build
+      - if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-distributions
+          path: build/distributions/*
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: rumble-client:test
+      - run: docker run --rm --read-only --network none --tmpfs /tmp:rw,nosuid,nodev,size=1g --cap-drop ALL --security-opt no-new-privileges rumble-client:test --check-runtimes
+      - run: test "$(docker run --rm --entrypoint id rumble-client:test -u)" != "0"
