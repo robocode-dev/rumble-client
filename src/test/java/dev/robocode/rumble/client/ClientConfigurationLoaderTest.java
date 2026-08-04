@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Optional;
 import java.util.Set;
 
 class ClientConfigurationLoaderTest {
@@ -21,7 +22,7 @@ class ClientConfigurationLoaderTest {
         final Path configurationPath = writeConfiguration("practice", "registered-client");
         final ClientConfiguration configuration = loader.load(configurationPath);
 
-        assertEquals("registered-client", configuration.clientId());
+        assertEquals(Optional.of("registered-client"), configuration.clientId());
         assertEquals(ClientMode.PRACTICE, configuration.mode());
         assertEquals(Set.of(GameType.ONE_VS_ONE, GameType.TWIN_DUEL, GameType.MELEE), configuration.gameTypes());
         assertEquals(configurationPath.getParent().resolve(".rumble-client").toAbsolutePath().normalize(),
@@ -32,6 +33,28 @@ class ClientConfigurationLoaderTest {
     @Tag("Unit")
     void testUnitNegative_rejectsExampleClientId() throws IOException {
         final Path configurationPath = writeConfiguration("ranked", "replace-with-registered-client-id");
+
+        assertThrows(IllegalArgumentException.class, () -> loader.load(configurationPath));
+    }
+
+    @Test
+    @Tag("Unit")
+    void testUnitPositive_allowsPracticeConfigurationWithoutClientId() throws IOException {
+        final Path configurationPath = Files.createTempFile("rumble-client", ".json");
+        Files.writeString(configurationPath, validConfiguration("practice", "registered-client")
+                .replace("  \"clientId\": \"registered-client\",\n", ""));
+
+        final ClientConfiguration configuration = loader.load(configurationPath);
+
+        assertEquals(Optional.empty(), configuration.clientId());
+    }
+
+    @Test
+    @Tag("Unit")
+    void testUnitNegative_rejectsRankedConfigurationWithoutClientId() throws IOException {
+        final Path configurationPath = Files.createTempFile("rumble-client", ".json");
+        Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
+                .replace("  \"clientId\": \"registered-client\",\n", ""));
 
         assertThrows(IllegalArgumentException.class, () -> loader.load(configurationPath));
     }
@@ -62,6 +85,17 @@ class ClientConfigurationLoaderTest {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
                 .replace("https://github.com/robocode-dev/rumble-bots", "https://credential@github.com/robocode-dev/rumble-bots"));
+
+        assertThrows(IllegalArgumentException.class, () -> loader.load(configurationPath));
+    }
+
+    @Test
+    @Tag("Unit")
+    void testUnitNegative_rejectsRepositoryUrlQueryThatCouldCarryCredentials() throws IOException {
+        final Path configurationPath = Files.createTempFile("rumble-client", ".json");
+        Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
+                .replace("https://github.com/robocode-dev/rumble-data",
+                        "https://github.com/robocode-dev/rumble-data?token=secret"));
 
         assertThrows(IllegalArgumentException.class, () -> loader.load(configurationPath));
     }

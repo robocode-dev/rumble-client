@@ -14,6 +14,7 @@ import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.Locale;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -36,18 +37,30 @@ final class ClientConfigurationLoader {
         validateSchemaVersion(configuration);
         final URI botsRepository = parseHttpsUri(configuration, "botsRepo");
         final URI dataRepository = parseHttpsUri(configuration, "dataRepo");
-        final String clientId = requiredString(configuration, "clientId");
-        if (clientId.equals(EXAMPLE_CLIENT_ID)) {
-            throw new IllegalArgumentException("clientId must replace the example value");
-        }
+        final ClientMode mode = parseMode(requiredString(configuration, "mode"));
+        final Optional<String> clientId = parseClientId(configuration, mode);
         final Set<String> myBots = parseStringSet(configuration, "myBots", false);
         final Set<GameType> gameTypes = parseGameTypes(configuration);
         final int battlesPerSession = parsePositiveInteger(configuration, "battlesPerSession");
-        final ClientMode mode = parseMode(requiredString(configuration, "mode"));
         final Path workDirectory = parseWorkDirectory(configurationPath,
                 optionalString(configuration, "workDirectory", ".rumble-client"));
         return new ClientConfiguration(botsRepository, dataRepository, clientId, myBots, gameTypes,
                 battlesPerSession, mode, workDirectory);
+    }
+
+    private static Optional<String> parseClientId(final JsonObject configuration, final ClientMode mode) {
+        final JsonElement element = configuration.get("clientId");
+        if (element == null || element.isJsonNull()) {
+            if (mode == ClientMode.RANKED) {
+                throw new IllegalArgumentException("Configuration is missing clientId for ranked mode");
+            }
+            return Optional.empty();
+        }
+        final String clientId = requiredString(configuration, "clientId");
+        if (clientId.equals(EXAMPLE_CLIENT_ID)) {
+            throw new IllegalArgumentException("clientId must replace the example value");
+        }
+        return Optional.of(clientId);
     }
 
     private static JsonObject parse(final Path configurationPath) throws IOException {
@@ -78,6 +91,9 @@ final class ClientConfigurationLoader {
             }
             if (uri.getRawUserInfo() != null) {
                 throw new IllegalArgumentException(fieldName + " must not contain user credentials");
+            }
+            if (uri.getRawQuery() != null || uri.getRawFragment() != null) {
+                throw new IllegalArgumentException(fieldName + " must not contain a query or fragment");
             }
             return uri;
         } catch (URISyntaxException exception) {

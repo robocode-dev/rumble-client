@@ -26,7 +26,8 @@ final class RumbleSnapshotParser {
                          final ClientConfiguration configuration) throws java.io.IOException {
         final EnginePin engine = parseEngine(checkout.read("engine.json"), configuration.gameTypes());
         final BotCatalog catalog = parseCatalog(checkout.read("catalog.json"), configuration.botsRepository());
-        final ClientRegistration registration = parseRegistration(checkout, configuration.clientId());
+        final ClientRegistration registration = parseRegistration(checkout, configuration.clientId().orElseThrow(
+                () -> JsonContract.invalid("Ranked configuration is missing clientId")));
         final Map<GameType, MatchAdvice> advice = new HashMap<>();
         for (final GameType gameType : configuration.gameTypes()) {
             final String path = "matchmaking/matches_needed-" + gameType.contractName() + ".json";
@@ -81,7 +82,8 @@ final class RumbleSnapshotParser {
                 continue;
             }
             final CatalogBot entry = new CatalogBot(bot.string("name"), bot.string("version"),
-                    bot.string("platform"), bot.string("path"), matching(bot.string("sourceHash"), SHA_256,
+                    bot.string("platform"), validatedBotPath(bot.string("path")),
+                    matching(bot.string("sourceHash"), SHA_256,
                     "catalog bot sourceHash must be sha256:<64 lowercase hex>"));
             if (activeBots.putIfAbsent(entry.displayName(), entry) != null) {
                 throw JsonContract.invalid("catalog.json contains duplicate active bot " + entry.displayName());
@@ -205,6 +207,19 @@ final class RumbleSnapshotParser {
     private static String matching(final String value, final Pattern pattern, final String message) {
         if (!pattern.matcher(value).matches()) {
             throw JsonContract.invalid(message);
+        }
+        return value;
+    }
+
+    private static String validatedBotPath(final String value) {
+        final String[] segments = value.split("/", -1);
+        if (value.contains("\\") || segments.length < 2 || !segments[0].equals("bots")) {
+            throw JsonContract.invalid("catalog bot path must be relative to bots/");
+        }
+        for (final String segment : segments) {
+            if (segment.isBlank() || segment.equals(".") || segment.equals("..")) {
+                throw JsonContract.invalid("catalog bot path must not contain empty or traversal segments");
+            }
         }
         return value;
     }
