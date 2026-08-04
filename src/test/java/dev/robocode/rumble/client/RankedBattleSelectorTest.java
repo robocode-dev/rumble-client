@@ -5,17 +5,21 @@ import org.junit.jupiter.api.Test;
 
 import java.net.URI;
 import java.nio.file.Path;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RankedBattleSelectorTest {
+    private static final int GLOBAL_PRIORITY_CANDIDATE_LIMIT = 10;
     private static final long RANDOM_SEED = 482193L;
 
     @Test
@@ -30,8 +34,36 @@ class RankedBattleSelectorTest {
 
             assertEquals(snapshot.engine().gameTypes().get(gameType).participants(), selection.participants().size());
             assertEquals(selection.participants().size(), Set.copyOf(selection.participants()).size());
-            assertTrue(selection.participants().stream().anyMatch(bot -> bot.name().equals("Bot 03")));
+            assertTrue(selection.participants().stream().map(CatalogBot::name)
+                    .toList().containsAll(List.of("Bot 03", "Bot 04")));
             assertEquals(RANDOM_SEED, selection.randomSeed());
+        }
+    }
+
+    @Test
+    @Tag("RCL-003")
+    void testRCL003_UnitPositive_selectsGlobalAdviceOnlyFromTheHighPriorityWindow() {
+        final RumbleSnapshot baseSnapshot = snapshot(12, false);
+        final List<CatalogBot> bots = baseSnapshot.catalog().activeBots().values().stream()
+                .sorted(Comparator.comparing(CatalogBot::displayName))
+                .toList();
+        final List<PriorityPair> pairs = IntStream.range(1, bots.size())
+                .mapToObj(index -> new PriorityPair(List.of(bots.get(0), bots.get(index)), index, "under-sampled"))
+                .toList();
+        final MatchAdvice advice = new MatchAdvice(GameType.ONE_VS_ONE, "a".repeat(64), 12, pairs);
+        final RumbleSnapshot snapshot = new RumbleSnapshot(baseSnapshot.canonicalDataRepository(),
+                baseSnapshot.dataRevision(), baseSnapshot.engine(), baseSnapshot.catalog(),
+                baseSnapshot.registration(), Map.of(GameType.ONE_VS_ONE, advice));
+        final Set<Set<CatalogBot>> highPriorityPairs = pairs.stream().limit(GLOBAL_PRIORITY_CANDIDATE_LIMIT)
+                .map(pair -> Set.copyOf(pair.bots()))
+                .collect(Collectors.toSet());
+        final RankedBattleSelector selector = new RankedBattleSelector();
+
+        for (long seed = 0; seed < 100; seed++) {
+            final BattleSelection selection = selector.select(snapshot, configuration(Set.of()),
+                    GameType.ONE_VS_ONE, seed);
+
+            assertTrue(highPriorityPairs.contains(Set.copyOf(selection.participants())));
         }
     }
 

@@ -12,6 +12,8 @@ import java.util.Set;
  * Turns non-exclusive matchmaking advice into a reproducible ranked battle.
  */
 final class RankedBattleSelector {
+    private static final int GLOBAL_PRIORITY_CANDIDATE_LIMIT = 10;
+
     BattleSelection select(final RumbleSnapshot snapshot, final ClientConfiguration configuration,
                            final GameType gameType, final long randomSeed) {
         if (configuration.mode() != ClientMode.RANKED) {
@@ -47,7 +49,9 @@ final class RankedBattleSelector {
         final List<PriorityPair> ownBotPairs = priorityPairs.stream()
                 .filter(pair -> pair.bots().stream().anyMatch(bot -> ownBots.contains(bot.name())))
                 .toList();
-        final List<PriorityPair> preferredPairs = ownBotPairs.isEmpty() ? priorityPairs : ownBotPairs;
+        final List<PriorityPair> preferredPairs = ownBotPairs.isEmpty()
+                ? priorityPairs.stream().limit(GLOBAL_PRIORITY_CANDIDATE_LIMIT).toList()
+                : ownBotPairs;
         if (preferredPairs.isEmpty()) {
             return Optional.empty();
         }
