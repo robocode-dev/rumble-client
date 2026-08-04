@@ -12,7 +12,7 @@ Install JDK 17, then run:
 ./gradlew build
 ```
 
-The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository and validate its engine pin, catalog, client registration, and matchmaking advice. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Battle Runner execution, persistence, issue-ops transport, and the runtime container are added in subsequent CH-012 tasks.
+The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Battle Runner execution, persistence, issue-ops transport, and the runtime container are added in subsequent CH-012 tasks.
 
 ## Configuration
 

@@ -5,6 +5,7 @@ import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
@@ -20,6 +21,25 @@ final class GitRepositoryReader implements RepositoryReader {
             runGit("clone", "--quiet", "--depth", "1", "--no-tags", repository.toString(), directory.toString());
             final String revision = runGit("-C", directory.toString(), "rev-parse", "HEAD").trim();
             return new Checkout(repository, directory, revision);
+        } catch (IOException exception) {
+            deleteTree(directory);
+            throw exception;
+        }
+    }
+
+    @Override
+    public RepositoryCheckout checkout(final URI repository, final String revision) throws IOException {
+        final Path directory = Files.createTempDirectory("rumble-client-repository-");
+        try {
+            runGit("init", "--quiet", directory.toString());
+            runGit("-C", directory.toString(), "remote", "add", "origin", repository.toString());
+            runGit("-C", directory.toString(), "fetch", "--quiet", "--depth", "1", "origin", revision);
+            runGit("-C", directory.toString(), "checkout", "--quiet", "--detach", "FETCH_HEAD");
+            final String actualRevision = runGit("-C", directory.toString(), "rev-parse", "HEAD").trim();
+            if (!actualRevision.equals(revision)) {
+                throw new IOException("Repository returned " + actualRevision + " for requested commit " + revision);
+            }
+            return new Checkout(repository, directory, actualRevision);
         } catch (IOException exception) {
             deleteTree(directory);
             throw exception;
@@ -76,6 +96,27 @@ final class GitRepositoryReader implements RepositoryReader {
                         .map(path -> directory.relativize(path).toString().replace('\\', '/'))
                         .sorted()
                         .toList();
+            }
+        }
+
+        @Override
+        public void copyDirectory(final String relativeDirectory, final Path destination) throws IOException {
+            final Path source = resolveInsideCheckout(relativeDirectory);
+            if (!Files.isDirectory(source)) {
+                throw new IOException("Repository path is not a directory: " + relativeDirectory);
+            }
+            try (Stream<Path> paths = Files.walk(source)) {
+                for (final Path path : paths.sorted().toList()) {
+                    if (Files.isSymbolicLink(path)) {
+                        throw new IOException("Bot source must not contain symbolic links: " + relativeDirectory);
+                    }
+                    final Path target = destination.resolve(source.relativize(path).toString());
+                    if (Files.isDirectory(path)) {
+                        Files.createDirectories(target);
+                    } else if (Files.isRegularFile(path)) {
+                        Files.copy(path, target, StandardCopyOption.COPY_ATTRIBUTES);
+                    }
+                }
             }
         }
 
