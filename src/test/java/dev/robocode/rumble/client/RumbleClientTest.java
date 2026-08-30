@@ -23,12 +23,13 @@ class RumbleClientTest {
         assertTrue(bytes.toString().contains("rumble-client --check-runtimes"));
         assertTrue(bytes.toString().contains("rumble-client --sync [path]"));
         assertTrue(bytes.toString().contains("rumble-client --run [path]"));
+        assertTrue(bytes.toString().contains("rumble-client --submit [path]"));
     }
 
     @Test
     @Tag("Unit")
     void testUnitNegative_rejectsUnknownCommand() {
-        assertThrows(IllegalArgumentException.class, () -> RumbleClient.run(new String[] {"--submit"}, System.out));
+        assertThrows(IllegalArgumentException.class, () -> RumbleClient.run(new String[] {"--unknown"}, System.out));
     }
 
     @Test

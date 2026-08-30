@@ -16,6 +16,7 @@ public final class RumbleClient {
     private static final String CHECK_RUNTIMES_OPTION = "--check-runtimes";
     private static final String SYNCHRONIZE_OPTION = "--sync";
     private static final String RUN_OPTION = "--run";
+    private static final String SUBMIT_OPTION = "--submit";
     private static final Path DEFAULT_CONFIGURATION_PATH = Path.of("rumble-client.json");
 
     private RumbleClient() {
@@ -54,18 +55,19 @@ public final class RumbleClient {
 
         if (arguments.length > 2
                 || (!arguments[0].equals(VALIDATE_CONFIG_OPTION) && !arguments[0].equals(SYNCHRONIZE_OPTION)
-                && !arguments[0].equals(RUN_OPTION))) {
+                && !arguments[0].equals(RUN_OPTION) && !arguments[0].equals(SUBMIT_OPTION))) {
             throw new IllegalArgumentException(
-                    "Expected --validate-config [path], --check-runtimes, --sync [path], --run [path], or --help");
+                    "Expected --validate-config [path], --check-runtimes, --sync [path], --run [path], --submit [path], or --help");
         }
 
         final Path configurationPath = arguments.length == 2 ? Path.of(arguments[1]) : DEFAULT_CONFIGURATION_PATH;
         final ClientConfiguration configuration = new ClientConfigurationLoader().load(configurationPath);
-        if (arguments[0].equals(SYNCHRONIZE_OPTION) || arguments[0].equals(RUN_OPTION)) {
+        if (arguments[0].equals(SYNCHRONIZE_OPTION) || arguments[0].equals(RUN_OPTION)
+                || arguments[0].equals(SUBMIT_OPTION)) {
             final GitRepositoryReader repositoryReader = new GitRepositoryReader();
             final RumbleSnapshot snapshot = new RumbleSynchronizer(repositoryReader).synchronize(configuration);
-            final PreparedBotCache botCache = new BotCachePreparer(repositoryReader).prepare(snapshot, configuration);
             if (arguments[0].equals(RUN_OPTION)) {
+                final PreparedBotCache botCache = new BotCachePreparer(repositoryReader).prepare(snapshot, configuration);
                 final RankedJournal journal = new RankedJournal(configuration.workDirectory());
                 final int quarantined = journal.quarantineObsolete(snapshot.engine().behaviorVersion()).size();
                 final GameType gameType = configuration.gameTypes().stream()
@@ -83,6 +85,19 @@ public final class RumbleClient {
                         record.gameType(), record.battleId(), configuration.workDirectory().resolve("evidence"));
                 return;
             }
+            if (arguments[0].equals(SUBMIT_OPTION)) {
+                final RankedJournal journal = new RankedJournal(configuration.workDirectory());
+                final int quarantined = journal.quarantineObsolete(snapshot.engine().behaviorVersion()).size();
+                final SubmissionReport report = new IssueOpsSubmission(new GitHubIssueOpsTransport(
+                        System.getenv("RUMBLE_CLIENT_TOKEN")), Clock.systemUTC()).submit(journal, snapshot);
+                output.printf("Observed %d accepted result receipts and created %d Issues-only submission batches.%n",
+                        report.receipts().size(), report.submitted().size());
+                if (quarantined > 0) {
+                    output.printf("Quarantined %d records from an obsolete behavior-version epoch.%n", quarantined);
+                }
+                return;
+            }
+            final PreparedBotCache botCache = new BotCachePreparer(repositoryReader).prepare(snapshot, configuration);
             output.printf("Synchronized %s at %s.%n", snapshot.canonicalDataRepository(), snapshot.dataRevision());
             output.printf("Accepted behavior version %d, cached %d active bots at %s, and advice for %d game types.%n",
                     snapshot.engine().behaviorVersion(), botCache.bots().size(), botCache.sourceCommit(),
@@ -103,12 +118,14 @@ public final class RumbleClient {
         output.println("       rumble-client --check-runtimes");
         output.println("       rumble-client --sync [path]");
         output.println("       rumble-client --run [path]");
+        output.println("       rumble-client --submit [path]");
         output.println("       rumble-client --help");
         output.println();
         output.println("Use --validate-config to check a local ranked or practice configuration.");
         output.println("Use --check-runtimes to verify native Java, .NET, Python, and Node.js prerequisites.");
         output.println("Use --sync to validate the current ranked snapshot and prepare its immutable bot cache.");
         output.println("Use --run to execute one ranked battle and retain its local replay evidence.");
+        output.println("Use --submit to send pending ranked records with the RUMBLE_CLIENT_TOKEN Issues-only credential.");
     }
 
     private static void printRuntimeReport(final RuntimeReport report, final PrintStream output) {

@@ -29,6 +29,7 @@ final class RankedJournal {
     private static final String RECORDS_FILE = "records.jsonl";
     private static final String ACKNOWLEDGEMENTS_FILE = "acknowledgements.jsonl";
     private static final String QUARANTINE_FILE = "quarantine.jsonl";
+    private static final String SUBMISSIONS_FILE = "submissions.jsonl";
 
     private final Path directory;
 
@@ -51,6 +52,24 @@ final class RankedJournal {
         for (final SubmissionReceipt receipt : receipts) {
             appendLine(ACKNOWLEDGEMENTS_FILE, dispositionJson(receipt.battleId(), "receipt", receipt.reference()));
         }
+    }
+
+    void recordSubmission(final SubmittedBatch batch) throws IOException {
+        final JsonObject entry = new JsonObject();
+        entry.addProperty("schemaVersion", SCHEMA_VERSION);
+        entry.addProperty("issueNumber", batch.issueNumber());
+        entry.addProperty("issueUrl", batch.issueUrl());
+        final JsonArray battleIds = new JsonArray();
+        batch.battleIds().forEach(battleId -> battleIds.add(battleId.toString()));
+        entry.add("battleIds", battleIds);
+        appendLine(SUBMISSIONS_FILE, entry);
+    }
+
+    List<SubmittedBatch> unacknowledgedSubmissions() throws IOException {
+        final Set<UUID> pending = pending().stream().map(RankedBattleRecord::battleId)
+                .collect(java.util.stream.Collectors.toSet());
+        return entries(SUBMISSIONS_FILE).stream().map(RankedJournal::submittedBatch)
+                .filter(batch -> batch.battleIds().stream().anyMatch(pending::contains)).toList();
     }
 
     List<RankedBattleRecord> quarantineObsolete(final int behaviorVersion) throws IOException {
@@ -130,7 +149,7 @@ final class RankedJournal {
         }
     }
 
-    private static JsonObject recordJson(final RankedBattleRecord record) {
+    static JsonObject recordJson(final RankedBattleRecord record) {
         final JsonObject result = new JsonObject();
         result.addProperty("schemaVersion", SCHEMA_VERSION);
         result.addProperty("battleId", record.battleId().toString());
@@ -200,6 +219,19 @@ final class RankedJournal {
                 requiredString(json, "replayHash", RECORDS_FILE));
     }
 
+    private static SubmittedBatch submittedBatch(final JsonObject json) {
+        final int issueNumber = integer(json, "issueNumber", SUBMISSIONS_FILE);
+        if (issueNumber < 1) {
+            throw new IllegalArgumentException("Ranked journal submissions.jsonl has invalid issueNumber");
+        }
+        final List<UUID> battleIds = array(json, "battleIds", SUBMISSIONS_FILE).asList().stream()
+                .map(JsonElement::getAsString).map(UUID::fromString).toList();
+        if (battleIds.isEmpty() || new LinkedHashSet<>(battleIds).size() != battleIds.size()) {
+            throw new IllegalArgumentException("Ranked journal submissions.jsonl has invalid battleIds");
+        }
+        return new SubmittedBatch(issueNumber, requiredString(json, "issueUrl", SUBMISSIONS_FILE), battleIds);
+    }
+
     private static RankedParticipant participant(final JsonObject json) {
         return new RankedParticipant(requiredString(json, "name", RECORDS_FILE),
                 requiredString(json, "version", RECORDS_FILE), booleanValue(json, "isTeam", RECORDS_FILE),
@@ -263,4 +295,11 @@ final class RankedJournal {
 
 /** One durable acknowledgement published by the result-data ingestion workflow. */
 record SubmissionReceipt(UUID battleId, String reference) {
+}
+
+/** One locally recorded issue containing a batch awaiting result-data receipts. */
+record SubmittedBatch(int issueNumber, String issueUrl, List<UUID> battleIds) {
+    SubmittedBatch {
+        battleIds = List.copyOf(battleIds);
+    }
 }
