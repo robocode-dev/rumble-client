@@ -22,28 +22,41 @@ final class RankedBattleSelector {
         final GameTypeSettings settings = requireSettings(snapshot, gameType);
         final MatchAdvice advice = requireAdvice(snapshot, gameType);
         final List<CatalogBot> availableBots = snapshot.catalog().activeBots().values().stream()
-                .filter(bot -> bot.isTeam() == (gameType == GameType.TWIN_DUEL))
+                .filter(bot -> bot.isTeam() == gameType.isTeamGame())
                 .sorted(Comparator.comparing(CatalogBot::displayName))
                 .toList();
         final int requiredEntries = requiredEntries(gameType, settings);
         if (availableBots.size() < requiredEntries) {
             throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
                     + requiredEntries + " distinct active "
-                    + (gameType == GameType.TWIN_DUEL ? "teams" : "bots") + ", but the catalog contains "
+                    + (gameType.isTeamGame() ? "teams" : "bots") + ", but the catalog contains "
                     + availableBots.size());
         }
 
         final Random random = new Random(randomSeed);
         final List<CatalogBot> participants = new ArrayList<>(requiredEntries);
-        chooseAdviceAnchor(advice.priorityPairs(), configuration.myBots(), random).ifPresent(pair ->
-                participants.addAll(pair.bots()));
+        final Set<String> bookedMembers = new HashSet<>();
+        chooseAdviceAnchor(advice.priorityPairs(), configuration.myBots(), random)
+                .filter(pair -> disjoint(pair.bots()))
+                .ifPresent(pair -> pair.bots().forEach(bot -> book(bot, participants, bookedMembers)));
 
-        final Set<CatalogBot> selected = new HashSet<>(participants);
         final List<CatalogBot> remaining = new ArrayList<>(availableBots.stream()
-                .filter(bot -> !selected.contains(bot))
+                .filter(bot -> !participants.contains(bot))
                 .toList());
         java.util.Collections.shuffle(remaining, random);
-        participants.addAll(remaining.subList(0, requiredEntries - participants.size()));
+        for (final CatalogBot candidate : remaining) {
+            if (participants.size() == requiredEntries) {
+                break;
+            }
+            if (java.util.Collections.disjoint(bookedMembers, memberIdentities(candidate))) {
+                book(candidate, participants, bookedMembers);
+            }
+        }
+        if (participants.size() != requiredEntries) {
+            throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
+                    + requiredEntries + " entries that share no member bot, but only "
+                    + participants.size() + " could be selected");
+        }
         final int expandedParticipants = participants.stream()
                 .mapToInt(CatalogBot::expandedParticipantCount)
                 .sum();
@@ -55,14 +68,33 @@ final class RankedBattleSelector {
         return new BattleSelection(gameType, randomSeed, participants);
     }
 
+    private static void book(final CatalogBot bot, final List<CatalogBot> participants,
+                             final Set<String> bookedMembers) {
+        participants.add(bot);
+        bookedMembers.addAll(memberIdentities(bot));
+    }
+
+    /**
+     * Distinct identities of the bots one catalog entry boots, so that no bot ever appears on both
+     * sides of a single battle. A team that lists the same member twice still boots that one bot.
+     */
+    private static Set<String> memberIdentities(final CatalogBot bot) {
+        return bot.isTeam() ? Set.copyOf(bot.teamMembers()) : Set.of(bot.displayName());
+    }
+
+    private static boolean disjoint(final List<CatalogBot> bots) {
+        final Set<String> union = new HashSet<>();
+        return bots.stream().allMatch(bot -> java.util.Collections.disjoint(union, memberIdentities(bot))
+                && union.addAll(memberIdentities(bot)));
+    }
+
     private static int requiredEntries(final GameType gameType, final GameTypeSettings settings) {
-        if (gameType != GameType.TWIN_DUEL) {
-            return settings.participants();
+        if (settings.participants() % gameType.teamSize() != 0) {
+            throw new IllegalArgumentException("Game type " + gameType.contractName()
+                    + " pins " + settings.participants() + " participants, which is not divisible by its team size "
+                    + gameType.teamSize());
         }
-        if (settings.participants() % 2 != 0) {
-            throw new IllegalArgumentException("TwinDuel requires an even expanded participant count");
-        }
-        return settings.participants() / 2;
+        return settings.participants() / gameType.teamSize();
     }
 
     private static Optional<PriorityPair> chooseAdviceAnchor(final List<PriorityPair> priorityPairs,

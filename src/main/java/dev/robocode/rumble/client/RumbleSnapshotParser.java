@@ -203,7 +203,7 @@ final class RumbleSnapshotParser {
                 if (catalogBot == null) {
                     throw JsonContract.invalid(path + " references an inactive or unknown bot: " + bot.getAsString());
                 }
-                if (catalogBot.isTeam() != (expectedGameType == GameType.TWIN_DUEL)) {
+                if (catalogBot.isTeam() != expectedGameType.isTeamGame()) {
                     throw JsonContract.invalid(path + " references a bot that is ineligible for "
                             + expectedGameType.contractName() + ": " + bot.getAsString());
                 }

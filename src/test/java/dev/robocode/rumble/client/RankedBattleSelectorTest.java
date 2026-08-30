@@ -32,11 +32,11 @@ class RankedBattleSelectorTest {
         for (final GameType gameType : GameType.values()) {
             final BattleSelection selection = selector.select(snapshot, configuration, gameType, RANDOM_SEED);
 
-            final int expectedEntries = gameType == GameType.TWIN_DUEL ? 2
-                    : snapshot.engine().gameTypes().get(gameType).participants();
+            final int expectedEntries = snapshot.engine().gameTypes().get(gameType).participants()
+                    / gameType.teamSize();
             assertEquals(expectedEntries, selection.participants().size());
             assertEquals(selection.participants().size(), Set.copyOf(selection.participants()).size());
-            final List<String> expectedAdvice = gameType == GameType.TWIN_DUEL
+            final List<String> expectedAdvice = gameType.isTeamGame()
                     ? List.of("Team 02", "Team 03") : List.of("Bot 03", "Bot 04");
             assertTrue(selection.participants().stream().map(CatalogBot::name).toList()
                     .containsAll(expectedAdvice));
@@ -89,6 +89,32 @@ class RankedBattleSelectorTest {
 
     @Test
     @Tag("RCL-010")
+    void testRCL010_UnitNegative_neverSelectsTwoTeamsThatShareAMemberBot() {
+        final RumbleSnapshot base = snapshot(12, false);
+        final Map<String, CatalogBot> bots = new LinkedHashMap<>();
+        base.catalog().activeBots().values().stream().filter(bot -> !bot.isTeam())
+                .forEach(bot -> bots.put(bot.displayName(), bot));
+        final List<CatalogBot> individuals = List.copyOf(bots.values());
+        for (int index = 1; index < individuals.size(); index++) {
+            final String name = "Overlap %02d".formatted(index);
+            final CatalogBot team = new CatalogBot(name, "1.0", "JVM", "bots/java/" + name,
+                    "sha256:" + "%064x".formatted(100 + index),
+                    List.of(individuals.get(0).displayName(), individuals.get(index).displayName()));
+            bots.put(team.displayName(), team);
+        }
+        final RumbleSnapshot snapshot = new RumbleSnapshot(base.canonicalDataRepository(), base.dataRevision(),
+                base.engine(), new BotCatalog(base.catalog().source(), base.catalog().sourceCommit(), bots),
+                base.registration(), base.advice());
+
+        final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> new RankedBattleSelector()
+                        .select(snapshot, configuration(Set.of()), GameType.TWIN_DUEL, RANDOM_SEED));
+
+        assertTrue(failure.getMessage().contains("share no member bot"), failure.getMessage());
+    }
+
+    @Test
+    @Tag("RCL-010")
     void testRCL010_UnitNegative_rejectsASelectionWithoutEnoughDistinctActiveBots() {
         final RumbleSnapshot snapshot = snapshot(9, false);
 
@@ -128,7 +154,7 @@ class RankedBattleSelectorTest {
         final Map<GameType, MatchAdvice> advice = new LinkedHashMap<>();
         for (final GameType gameType : GameType.values()) {
             advice.put(gameType, new MatchAdvice(gameType, "a".repeat(64), 6,
-                    gameType == GameType.TWIN_DUEL ? teamPairs : individualPairs));
+                    gameType.isTeamGame() ? teamPairs : individualPairs));
         }
         return new RumbleSnapshot(URI.create("https://github.com/example/rumble-data"), "b".repeat(40),
                 new EnginePin(1, "unreleased", "example/image", java.util.Optional.empty(), settings),
