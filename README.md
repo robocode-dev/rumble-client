@@ -8,15 +8,19 @@ Contributors may use the supported native distribution or the recommended Docker
 
 ## Build
 
-Install JDK 17, then run:
+Install JDK 17 and keep a Tank Royale checkout containing BR-049 beside this repository, then run:
 
 ```shell
-./gradlew build
+./gradlew --no-configuration-cache -PtankRoyaleSource=../tank-royale build
 ```
+
+On PowerShell, quote the property argument: `.\gradlew.bat --no-configuration-cache "-PtankRoyaleSource=../tank-royale" build`.
+
+The source substitution is the development dependency path until the Runner API is part of a value-bearing Tank Royale release. It compiles the client against `dev.robocode.tankroyale:robocode-tankroyale-runner` without publishing an interim artifact. CI and the Docker build pin the accepted Tank Royale merge commit rather than following a moving branch. Configuration caching is disabled for source-substituted builds because the included Tank Royale build does not support it.
 
 The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required Java 17, .NET 8 SDK, Python 3.12, and Node.js 22 installations; the check never installs or changes them.
 
-The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Battle Runner execution, persistence, issue-ops transport, and the runtime container are added in subsequent CH-012 tasks.
+The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Each game type declares how many bots one catalog entry expands to, so TwinDuel selects two team entries for its four pinned participants while `1v1` and melee select individual bots, and a selection never contains two entries that share a member bot. Run `./gradlew run --args="--run"` to execute one pinned ranked battle through Battle Runner and retain its replay evidence locally. Run `./gradlew run --args="--submit"` to post pending records through the `rumble-data` issue inbox. It reads `RUMBLE_CLIENT_TOKEN` only at runtime; use a GitHub fine-grained token limited to read and write Issues access for that repository. The client records posted batches locally and removes records only after their result-data receipt comments appear. The runtime container is added in a subsequent CH-012 task.
 
 ## Configuration
 
@@ -26,7 +30,7 @@ Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires 
 
 Docker Engine or Docker Desktop is required. Build the current non-published development image with `docker build --tag rumble-client:dev .`, then use `docker/rumble.sh` or `docker/rumble.ps1` to validate configuration, check the bundled runtimes, or synchronize the ranked snapshot. Docker execution uses the default `.rumble-client` work directory beside the configuration file. The launchers expose only that configuration file and state directory to the container and apply a read-only root filesystem, dropped capabilities, finite resource limits, and no external network for the runtime check.
 
-Battle and submission commands remain unavailable until their later CH-012 implementation tasks land. Their Docker launcher phases will run battles offline without a submission credential and submission online without starting bot code.
+Submission commands remain unavailable until their later CH-012 implementation tasks land. Their Docker launcher phases will run battles offline without a submission credential and submission online without starting bot code.
 
 ## Contributing
 

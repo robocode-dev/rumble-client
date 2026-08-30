@@ -22,26 +22,79 @@ final class RankedBattleSelector {
         final GameTypeSettings settings = requireSettings(snapshot, gameType);
         final MatchAdvice advice = requireAdvice(snapshot, gameType);
         final List<CatalogBot> availableBots = snapshot.catalog().activeBots().values().stream()
+                .filter(bot -> bot.isTeam() == gameType.isTeamGame())
                 .sorted(Comparator.comparing(CatalogBot::displayName))
                 .toList();
-        if (availableBots.size() < settings.participants()) {
+        final int requiredEntries = requiredEntries(gameType, settings);
+        if (availableBots.size() < requiredEntries) {
             throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
-                    + settings.participants() + " distinct active bots, but the catalog contains "
+                    + requiredEntries + " distinct active "
+                    + (gameType.isTeamGame() ? "teams" : "bots") + ", but the catalog contains "
                     + availableBots.size());
         }
 
         final Random random = new Random(randomSeed);
-        final List<CatalogBot> participants = new ArrayList<>(settings.participants());
-        chooseAdviceAnchor(advice.priorityPairs(), configuration.myBots(), random).ifPresent(pair ->
-                participants.addAll(pair.bots()));
+        final List<CatalogBot> participants = new ArrayList<>(requiredEntries);
+        final Set<String> bookedMembers = new HashSet<>();
+        chooseAdviceAnchor(advice.priorityPairs(), configuration.myBots(), random)
+                .filter(pair -> disjoint(pair.bots()))
+                .ifPresent(pair -> pair.bots().forEach(bot -> book(bot, participants, bookedMembers)));
 
-        final Set<CatalogBot> selected = new HashSet<>(participants);
         final List<CatalogBot> remaining = new ArrayList<>(availableBots.stream()
-                .filter(bot -> !selected.contains(bot))
+                .filter(bot -> !participants.contains(bot))
                 .toList());
         java.util.Collections.shuffle(remaining, random);
-        participants.addAll(remaining.subList(0, settings.participants() - participants.size()));
+        for (final CatalogBot candidate : remaining) {
+            if (participants.size() == requiredEntries) {
+                break;
+            }
+            if (java.util.Collections.disjoint(bookedMembers, memberIdentities(candidate))) {
+                book(candidate, participants, bookedMembers);
+            }
+        }
+        if (participants.size() != requiredEntries) {
+            throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
+                    + requiredEntries + " entries that share no member bot, but only "
+                    + participants.size() + " could be selected");
+        }
+        final int expandedParticipants = participants.stream()
+                .mapToInt(CatalogBot::expandedParticipantCount)
+                .sum();
+        if (expandedParticipants != settings.participants()) {
+            throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
+                    + settings.participants() + " expanded participants, but selection contains "
+                    + expandedParticipants);
+        }
         return new BattleSelection(gameType, randomSeed, participants);
+    }
+
+    private static void book(final CatalogBot bot, final List<CatalogBot> participants,
+                             final Set<String> bookedMembers) {
+        participants.add(bot);
+        bookedMembers.addAll(memberIdentities(bot));
+    }
+
+    /**
+     * Distinct identities of the bots one catalog entry boots, so that no bot ever appears on both
+     * sides of a single battle. A team that lists the same member twice still boots that one bot.
+     */
+    private static Set<String> memberIdentities(final CatalogBot bot) {
+        return bot.isTeam() ? Set.copyOf(bot.teamMembers()) : Set.of(bot.displayName());
+    }
+
+    private static boolean disjoint(final List<CatalogBot> bots) {
+        final Set<String> union = new HashSet<>();
+        return bots.stream().allMatch(bot -> java.util.Collections.disjoint(union, memberIdentities(bot))
+                && union.addAll(memberIdentities(bot)));
+    }
+
+    private static int requiredEntries(final GameType gameType, final GameTypeSettings settings) {
+        if (settings.participants() % gameType.teamSize() != 0) {
+            throw new IllegalArgumentException("Game type " + gameType.contractName()
+                    + " pins " + settings.participants() + " participants, which is not divisible by its team size "
+                    + gameType.teamSize());
+        }
+        return settings.participants() / gameType.teamSize();
     }
 
     private static Optional<PriorityPair> chooseAdviceAnchor(final List<PriorityPair> priorityPairs,

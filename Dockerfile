@@ -1,11 +1,19 @@
 # syntax=docker/dockerfile:1
 
+FROM eclipse-temurin:11-jdk AS jdk11
+
 FROM gradle:8.14.3-jdk17 AS build
+ARG TANK_ROYALE_COMMIT=fd06b97a61c9aa264e6964520a30262f8f8be751
 WORKDIR /workspace
+COPY --from=jdk11 /opt/java/openjdk /opt/java/openjdk-11
 COPY gradle gradle
 COPY gradlew gradlew.bat build.gradle.kts settings.gradle.kts gradle.properties ./
 COPY src src
-RUN ./gradlew --no-daemon installDist
+RUN git clone --filter=blob:none https://github.com/robocode-dev/tank-royale.git /tank-royale \
+    && git -C /tank-royale checkout "$TANK_ROYALE_COMMIT" \
+    && ./gradlew --no-daemon --no-configuration-cache \
+        -Dorg.gradle.java.installations.paths=/opt/java/openjdk,/opt/java/openjdk-11 \
+        -PtankRoyaleSource=/tank-royale installDist
 
 FROM ubuntu:24.04
 ARG TARGETARCH

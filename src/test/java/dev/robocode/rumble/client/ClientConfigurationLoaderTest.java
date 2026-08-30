@@ -17,8 +17,8 @@ class ClientConfigurationLoaderTest {
     private final ClientConfigurationLoader loader = new ClientConfigurationLoader();
 
     @Test
-    @Tag("Unit")
-    void testUnitPositive_loadsValidPracticeConfiguration() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationPositive_loadsValidPracticeConfiguration() throws IOException {
         final Path configurationPath = writeConfiguration("practice", "registered-client");
         final ClientConfiguration configuration = loader.load(configurationPath);
 
@@ -30,16 +30,16 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsExampleClientId() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationNegative_rejectsExampleClientId() throws IOException {
         final Path configurationPath = writeConfiguration("ranked", "replace-with-registered-client-id");
 
         assertThrows(IllegalArgumentException.class, () -> loader.load(configurationPath));
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitPositive_allowsPracticeConfigurationWithoutClientId() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationPositive_allowsPracticeConfigurationWithoutClientId() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("practice", "registered-client")
                 .replace("  \"clientId\": \"registered-client\",\n", ""));
@@ -50,8 +50,8 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsRankedConfigurationWithoutClientId() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationNegative_rejectsRankedConfigurationWithoutClientId() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
                 .replace("  \"clientId\": \"registered-client\",\n", ""));
@@ -60,8 +60,8 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsUnsupportedGameType() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationNegative_rejectsUnsupportedGameType() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
                 .replace("\"melee\"", "\"team\""));
@@ -70,8 +70,8 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsFractionalBattleCount() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationNegative_rejectsFractionalBattleCount() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
                 .replace("50", "1.5"));
@@ -80,8 +80,8 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsCredentialedRepositoryUrl() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationNegative_rejectsCredentialedRepositoryUrl() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
                 .replace("https://github.com/robocode-dev/rumble-bots", "https://credential@github.com/robocode-dev/rumble-bots"));
@@ -90,8 +90,8 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsRepositoryUrlQueryThatCouldCarryCredentials() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationNegative_rejectsRepositoryUrlQueryThatCouldCarryCredentials() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
                 .replace("https://github.com/robocode-dev/rumble-data",
@@ -101,8 +101,8 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsEmptyGameTypes() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationNegative_rejectsEmptyGameTypes() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         Files.writeString(configurationPath, validConfiguration("ranked", "registered-client")
                 .replace("[\"1v1\", \"twinduel\", \"melee\"]", "[]"));
@@ -111,8 +111,8 @@ class ClientConfigurationLoaderTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitPositive_defaultsWorkDirectoryForExistingSchemaOneConfiguration() throws IOException {
+    @Tag("RCL-001")
+    void testRCL001_IntegrationPositive_defaultsWorkDirectoryForExistingSchemaOneConfiguration() throws IOException {
         final Path configurationPath = Files.createTempFile("rumble-client", ".json");
         final String legacyConfiguration = validConfiguration("ranked", "registered-client")
                 .replace(",\n  \"workDirectory\": \".rumble-client\"", "");

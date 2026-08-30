@@ -90,7 +90,8 @@ final class RumbleSnapshotParser {
             final CatalogBot entry = new CatalogBot(bot.string("name"), bot.string("version"),
                     bot.string("platform"), validatedBotPath(bot.string("path")),
                     matching(bot.string("sourceHash"), SHA_256,
-                    "catalog bot sourceHash must be sha256:<64 lowercase hex>"));
+                    "catalog bot sourceHash must be sha256:<64 lowercase hex>"),
+                    parseTeamMembers(bot.optionalArray("teamMembers")));
             if (activeBots.putIfAbsent(entry.displayName(), entry) != null) {
                 throw JsonContract.invalid("catalog.json contains duplicate active bot " + entry.displayName());
             }
@@ -98,7 +99,39 @@ final class RumbleSnapshotParser {
         if (activeBots.isEmpty()) {
             throw JsonContract.invalid("catalog.json contains no active bots");
         }
+        validateTeamMembers(activeBots);
         return new BotCatalog(source, sourceCommit, activeBots);
+    }
+
+    private static List<String> parseTeamMembers(final JsonArray values) {
+        if (!values.isEmpty() && values.size() != 2) {
+            throw JsonContract.invalid("catalog bot teamMembers must be empty or contain exactly two identities");
+        }
+        final List<String> members = new ArrayList<>();
+        for (final JsonElement value : values) {
+            if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+                    || value.getAsString().isBlank()) {
+                throw JsonContract.invalid("catalog bot teamMembers must contain non-blank strings");
+            }
+            members.add(value.getAsString());
+        }
+        return members;
+    }
+
+    private static void validateTeamMembers(final Map<String, CatalogBot> activeBots) {
+        for (final CatalogBot team : activeBots.values().stream().filter(CatalogBot::isTeam).toList()) {
+            for (final String memberIdentity : team.teamMembers()) {
+                final CatalogBot member = activeBots.get(memberIdentity);
+                if (member == null) {
+                    throw JsonContract.invalid("catalog team " + team.displayName()
+                            + " references an inactive or unknown member: " + memberIdentity);
+                }
+                if (member.isTeam()) {
+                    throw JsonContract.invalid("catalog team " + team.displayName()
+                            + " references another team: " + memberIdentity);
+                }
+            }
+        }
     }
 
     private static ClientRegistration parseRegistration(final RepositoryReader.RepositoryCheckout checkout,
@@ -169,6 +202,10 @@ final class RumbleSnapshotParser {
                 final CatalogBot catalogBot = catalog.activeBots().get(bot.getAsString());
                 if (catalogBot == null) {
                     throw JsonContract.invalid(path + " references an inactive or unknown bot: " + bot.getAsString());
+                }
+                if (catalogBot.isTeam() != expectedGameType.isTeamGame()) {
+                    throw JsonContract.invalid(path + " references a bot that is ineligible for "
+                            + expectedGameType.contractName() + ": " + bot.getAsString());
                 }
                 catalogBots.add(catalogBot);
             }
