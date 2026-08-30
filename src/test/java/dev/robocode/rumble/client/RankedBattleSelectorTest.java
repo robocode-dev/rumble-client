@@ -88,8 +88,8 @@ class RankedBattleSelectorTest {
     }
 
     @Test
-    @Tag("RCL-010")
-    void testRCL010_UnitNegative_neverSelectsTwoTeamsThatShareAMemberBot() {
+    @Tag("RCL-011")
+    void testRCL011_UnitNegative_rejectsTwinDuelWhenEveryTeamSharesAMemberBot() {
         final RumbleSnapshot base = snapshot(12, false);
         final Map<String, CatalogBot> bots = new LinkedHashMap<>();
         base.catalog().activeBots().values().stream().filter(bot -> !bot.isTeam())
@@ -111,6 +111,18 @@ class RankedBattleSelectorTest {
                         .select(snapshot, configuration(Set.of()), GameType.TWIN_DUEL, RANDOM_SEED));
 
         assertTrue(failure.getMessage().contains("share no member bot"), failure.getMessage());
+    }
+
+    @Test
+    @Tag("RCL-011")
+    void testRCL011_UnitPositive_selectsTwinDuelTeamsWithDisjointMembers() {
+        final BattleSelection selection = new RankedBattleSelector().select(snapshot(12, false), configuration(Set.of()),
+                GameType.TWIN_DUEL, RANDOM_SEED);
+
+        final Set<String> members = selection.participants().stream().flatMap(team -> team.teamMembers().stream())
+                .collect(Collectors.toSet());
+
+        assertEquals(4, members.size());
     }
 
     @Test
