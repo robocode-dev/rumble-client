@@ -128,6 +128,19 @@ class RumbleSynchronizerTest {
     }
 
     @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationNegative_rejectsUnknownCatalogTeamMember() {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        repositories.replace(CANONICAL_REPOSITORY, "catalog.json",
+                repositories.read(CANONICAL_REPOSITORY, "catalog.json")
+                        .replace("\"status\": \"active\"}",
+                                "\"status\": \"active\", \"teamMembers\": [\"Missing 1.0\", \"Bravo 1.0\"]}"));
+
+        assertThrows(IllegalArgumentException.class,
+                () -> new RumbleSynchronizer(repositories).synchronize(configuration()));
+    }
+
+    @Test
     @Tag("Unit")
     void testUnitNegative_rejectsSynchronizationInPracticeModeBeforeRepositoryAccess() {
         final InMemoryRepositoryReader repositories = validRepositories();

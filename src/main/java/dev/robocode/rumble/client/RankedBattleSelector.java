@@ -22,16 +22,19 @@ final class RankedBattleSelector {
         final GameTypeSettings settings = requireSettings(snapshot, gameType);
         final MatchAdvice advice = requireAdvice(snapshot, gameType);
         final List<CatalogBot> availableBots = snapshot.catalog().activeBots().values().stream()
+                .filter(bot -> bot.isTeam() == (gameType == GameType.TWIN_DUEL))
                 .sorted(Comparator.comparing(CatalogBot::displayName))
                 .toList();
-        if (availableBots.size() < settings.participants()) {
+        final int requiredEntries = requiredEntries(gameType, settings);
+        if (availableBots.size() < requiredEntries) {
             throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
-                    + settings.participants() + " distinct active bots, but the catalog contains "
+                    + requiredEntries + " distinct active "
+                    + (gameType == GameType.TWIN_DUEL ? "teams" : "bots") + ", but the catalog contains "
                     + availableBots.size());
         }
 
         final Random random = new Random(randomSeed);
-        final List<CatalogBot> participants = new ArrayList<>(settings.participants());
+        final List<CatalogBot> participants = new ArrayList<>(requiredEntries);
         chooseAdviceAnchor(advice.priorityPairs(), configuration.myBots(), random).ifPresent(pair ->
                 participants.addAll(pair.bots()));
 
@@ -40,8 +43,26 @@ final class RankedBattleSelector {
                 .filter(bot -> !selected.contains(bot))
                 .toList());
         java.util.Collections.shuffle(remaining, random);
-        participants.addAll(remaining.subList(0, settings.participants() - participants.size()));
+        participants.addAll(remaining.subList(0, requiredEntries - participants.size()));
+        final int expandedParticipants = participants.stream()
+                .mapToInt(CatalogBot::expandedParticipantCount)
+                .sum();
+        if (expandedParticipants != settings.participants()) {
+            throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
+                    + settings.participants() + " expanded participants, but selection contains "
+                    + expandedParticipants);
+        }
         return new BattleSelection(gameType, randomSeed, participants);
+    }
+
+    private static int requiredEntries(final GameType gameType, final GameTypeSettings settings) {
+        if (gameType != GameType.TWIN_DUEL) {
+            return settings.participants();
+        }
+        if (settings.participants() % 2 != 0) {
+            throw new IllegalArgumentException("TwinDuel requires an even expanded participant count");
+        }
+        return settings.participants() / 2;
     }
 
     private static Optional<PriorityPair> chooseAdviceAnchor(final List<PriorityPair> priorityPairs,

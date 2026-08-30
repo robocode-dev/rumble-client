@@ -32,9 +32,27 @@ record BotCatalog(URI source, String sourceCommit, Map<String, CatalogBot> activ
     }
 }
 
-record CatalogBot(String name, String version, String platform, String path, String sourceHash) {
+record CatalogBot(String name, String version, String platform, String path, String sourceHash,
+                  List<String> teamMembers) {
+    CatalogBot {
+        teamMembers = List.copyOf(teamMembers);
+    }
+
+    CatalogBot(final String name, final String version, final String platform, final String path,
+               final String sourceHash) {
+        this(name, version, platform, path, sourceHash, List.of());
+    }
+
     String displayName() {
         return name + " " + version;
+    }
+
+    boolean isTeam() {
+        return !teamMembers.isEmpty();
+    }
+
+    int expandedParticipantCount() {
+        return isTeam() ? teamMembers.size() : 1;
     }
 }
 

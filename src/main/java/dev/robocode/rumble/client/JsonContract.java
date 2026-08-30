@@ -93,6 +93,17 @@ final class JsonContract {
         return value.getAsJsonArray();
     }
 
+    JsonArray optionalArray(final String field) {
+        final JsonElement value = object.get(field);
+        if (value == null || value.isJsonNull()) {
+            return new JsonArray();
+        }
+        if (!value.isJsonArray()) {
+            throw invalid(document + "." + field + " must be an array");
+        }
+        return value.getAsJsonArray();
+    }
+
     JsonObject object(final String field) {
         final JsonElement value = required(field);
         if (!value.isJsonObject()) {
