@@ -22,6 +22,7 @@ class RumbleClientTest {
         assertTrue(bytes.toString().contains("rumble-client --validate-config [path]"));
         assertTrue(bytes.toString().contains("rumble-client --check-runtimes"));
         assertTrue(bytes.toString().contains("rumble-client --sync [path]"));
+        assertTrue(bytes.toString().contains("rumble-client --run [path]"));
     }
 
     @Test
