@@ -31,4 +31,7 @@ application {
 
 tasks.test {
     useJUnitPlatform()
+    val tankRoyaleSource = providers.gradleProperty("tankRoyaleSource").orElse("../tank-royale").get()
+    dependsOn(gradle.includedBuild("tank-royale").task(":sample-bots:java:build"))
+    systemProperty("tankRoyaleSampleBotsJava", file(tankRoyaleSource).resolve("sample-bots/java/build/archive"))
 }

@@ -17,6 +17,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IssueOpsSubmissionTest {
@@ -44,6 +45,50 @@ class IssueOpsSubmissionTest {
         assertTrue(transport.bodies.get(0).contains("\"clientId\":\"alice-client\""));
         assertEquals(List.of(first.battleId()), receipted.receipts().stream().map(SubmissionReceipt::battleId).toList());
         assertEquals(List.of(second), journal.pending());
+    }
+
+    @Test
+    @Tag("RCL-006")
+    void testRCL006_IntegrationNegative_submissionFailureLeavesEveryRecordRetryable() throws IOException {
+        final RankedBattleRecord record = record("67158518-7dd0-4d0c-af40-e1981f8a348f");
+        final RankedJournal journal = new RankedJournal(temporaryDirectory);
+        journal.append(record);
+        final IssueOpsTransport unavailable = new IssueOpsTransport() {
+            @Override
+            public SubmittedBatch createIssue(final URI repository, final String body, final String title) throws IOException {
+                throw new IOException("offline");
+            }
+
+            @Override
+            public List<SubmissionReceipt> receipts(final URI repository, final SubmittedBatch batch) {
+                return List.of();
+            }
+        };
+
+        assertThrows(IOException.class, () -> new IssueOpsSubmission(unavailable, Clock.systemUTC()).submit(journal, snapshot()));
+        assertEquals(List.of(record), journal.pending());
+    }
+
+    @Test
+    @Tag("RCL-007")
+    void testRCL007_IntegrationPositive_splitsSixtyOneRecordsAcrossBoundedIssueBatches() throws IOException {
+        final RankedJournal journal = new RankedJournal(temporaryDirectory);
+        for (int index = 0; index < 61; index++) {
+            journal.append(record(UUID.randomUUID().toString()));
+        }
+        final BatchRecordingTransport transport = new BatchRecordingTransport();
+
+        final SubmissionReport report = new IssueOpsSubmission(transport, Clock.systemUTC()).submit(journal, snapshot());
+
+        assertEquals(2, report.submitted().size());
+        assertEquals(List.of(60, 1), transport.bodies.stream()
+                .map(body -> body.split("\"battleId\"", -1).length - 1).toList());
+    }
+
+    @Test
+    @Tag("RCL-007")
+    void testRCL007_IntegrationNegative_rejectsMissingIssuesOnlyCredentialBeforeAnyRequest() {
+        assertThrows(IllegalArgumentException.class, () -> new GitHubIssueOpsTransport(""));
     }
 
     private static RumbleSnapshot snapshot() {
@@ -78,6 +123,22 @@ class IssueOpsSubmissionTest {
         @Override
         public List<SubmissionReceipt> receipts(final URI repository, final SubmittedBatch batch) {
             return List.of(new SubmissionReceipt(accepted, batch.issueUrl()));
+        }
+    }
+
+    private static final class BatchRecordingTransport implements IssueOpsTransport {
+        private final List<String> bodies = new ArrayList<>();
+
+        @Override
+        public SubmittedBatch createIssue(final URI repository, final String body, final String title) {
+            bodies.add(body);
+            return new SubmittedBatch(bodies.size(), "https://github.com/example/rumble-data/issues/" + bodies.size(),
+                    List.of(UUID.randomUUID()));
+        }
+
+        @Override
+        public List<SubmissionReceipt> receipts(final URI repository, final SubmittedBatch batch) {
+            return List.of();
         }
     }
 }

@@ -12,6 +12,8 @@ import java.util.List;
 
 /** Production adapter that executes one pinned battle through Battle Runner. */
 final class RunnerBattleExecutor implements BattleExecutor {
+    private static final int SOURCE_BOT_READY_TIMEOUT_MICROS = 10_000_000;
+
     @Override
     public CompletedBattle execute(final BattleSelection selection, final PreparedBotCache cache,
                                    final EnginePin engine, final GameTypeSettings settings,
@@ -52,5 +54,6 @@ final class RunnerBattleExecutor implements BattleExecutor {
         builder.setNumberOfRounds(settings.rounds());
         builder.setArenaWidth(settings.arenaWidth());
         builder.setArenaHeight(settings.arenaHeight());
+        builder.setReadyTimeoutMicros(SOURCE_BOT_READY_TIMEOUT_MICROS);
     }
 }

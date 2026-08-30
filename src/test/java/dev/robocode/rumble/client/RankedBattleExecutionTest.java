@@ -53,6 +53,18 @@ class RankedBattleExecutionTest {
     }
 
     @Test
+    @Tag("RCL-004")
+    void testRCL004_IntegrationPositive_rankedResultCanEnterOnlyTheRankedJournal() throws IOException {
+        final RankedBattleRecord record = execution(validExecutor(), UUID.randomUUID()).execute(selection(), cache(),
+                snapshot(), configuration(ClientMode.RANKED), "0.1.0");
+        final RankedJournal journal = new RankedJournal(temporaryDirectory.resolve("work"));
+
+        journal.append(record);
+
+        assertEquals(List.of(record), journal.pending());
+    }
+
+    @Test
     @Tag("RCL-005")
     void testRCL005_IntegrationNegative_incompleteBattleCreatesNoEvidence() {
         final BattleExecutor incomplete = (selection, cache, engine, settings, recordings) -> {
