@@ -16,15 +16,21 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: robocode-dev/tank-royale
+          ref: fd06b97a61c9aa264e6964520a30262f8f8be751
+          path: tank-royale-source
+          persist-credentials: false
       - uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 17
           cache: gradle
       - if: runner.os != 'Windows'
-        run: ./gradlew build
+        run: ./gradlew --no-configuration-cache -PtankRoyaleSource=tank-royale-source build
       - if: runner.os == 'Windows'
-        run: .\gradlew.bat build
+        run: .\gradlew.bat --no-configuration-cache "-PtankRoyaleSource=tank-royale-source" build
       - if: runner.os == 'Linux'
         uses: actions/upload-artifact@v4
         with:

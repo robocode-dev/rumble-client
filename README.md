@@ -8,11 +8,15 @@ Contributors may use the supported native distribution or the recommended Docker
 
 ## Build
 
-Install JDK 17, then run:
+Install JDK 17 and keep a Tank Royale checkout containing BR-049 beside this repository, then run:
 
 ```shell
-./gradlew build
+./gradlew --no-configuration-cache -PtankRoyaleSource=../tank-royale build
 ```
+
+On PowerShell, quote the property argument: `.\gradlew.bat --no-configuration-cache "-PtankRoyaleSource=../tank-royale" build`.
+
+The source substitution is the development dependency path until the Runner API is part of a value-bearing Tank Royale release. It compiles the client against `dev.robocode.tankroyale:robocode-tankroyale-runner` without publishing an interim artifact. CI and the Docker build pin the accepted Tank Royale merge commit rather than following a moving branch. Configuration caching is disabled for source-substituted builds because the included Tank Royale build does not support it.
 
 The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required Java 17, .NET 8 SDK, Python 3.12, and Node.js 22 installations; the check never installs or changes them.
 

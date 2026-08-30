@@ -18,6 +18,7 @@ repositories {
 
 dependencies {
     implementation("com.google.code.gson:gson:2.13.2")
+    implementation("dev.robocode.tankroyale:robocode-tankroyale-runner:${providers.gradleProperty("tankRoyaleRunnerVersion").get()}")
 
     testImplementation(platform("org.junit:junit-bom:5.11.4"))
     testImplementation("org.junit.jupiter:junit-jupiter")
