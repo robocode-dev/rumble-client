@@ -66,6 +66,8 @@ public final class RumbleClient {
             final RumbleSnapshot snapshot = new RumbleSynchronizer(repositoryReader).synchronize(configuration);
             final PreparedBotCache botCache = new BotCachePreparer(repositoryReader).prepare(snapshot, configuration);
             if (arguments[0].equals(RUN_OPTION)) {
+                final RankedJournal journal = new RankedJournal(configuration.workDirectory());
+                final int quarantined = journal.quarantineObsolete(snapshot.engine().behaviorVersion()).size();
                 final GameType gameType = configuration.gameTypes().stream()
                         .min(Comparator.comparing(GameType::contractName)).orElseThrow();
                 final BattleSelection selection = new RankedBattleSelector().select(snapshot, configuration, gameType,
@@ -73,6 +75,10 @@ public final class RumbleClient {
                 final RankedBattleRecord record = new RankedBattleExecution(new RunnerBattleExecutor(),
                         Clock.systemUTC(), UUID::randomUUID).execute(selection, botCache, snapshot, configuration,
                         clientVersion());
+                journal.append(record);
+                if (quarantined > 0) {
+                    output.printf("Quarantined %d records from an obsolete behavior-version epoch.%n", quarantined);
+                }
                 output.printf("Completed ranked %s battle %s; replay evidence is retained at %s.%n",
                         record.gameType(), record.battleId(), configuration.workDirectory().resolve("evidence"));
                 return;

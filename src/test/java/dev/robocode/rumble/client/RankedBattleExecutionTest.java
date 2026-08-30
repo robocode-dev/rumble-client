@@ -38,6 +38,7 @@ class RankedBattleExecutionTest {
         assertEquals(battleId, record.battleId());
         assertEquals("1v1", record.gameType());
         assertEquals(35, record.rounds());
+        assertEquals(7L, record.selectionSeed());
         assertEquals(2, record.participants().size());
         assertTrue(record.replayHash().startsWith("sha256:"));
         assertTrue(Files.isRegularFile(temporaryDirectory.resolve("work/evidence").resolve(battleId + ".battle.gz")));

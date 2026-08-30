@@ -45,6 +45,7 @@ final class RankedBattleExecution {
                 new ClientIdentity(snapshot.registration().clientId(), clientVersion),
                 new EngineIdentity(snapshot.engine().behaviorVersion()), selection.gameType().contractName(),
                 settings.rounds(), settings.arenaWidth(), settings.arenaHeight(),
+                selection.randomSeed(),
                 completed.results().getResults().stream().map(RankedBattleExecution::participant).toList(),
                 sha256(evidence));
     }

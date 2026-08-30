@@ -7,7 +7,7 @@ import java.util.UUID;
 /** Immutable result record ready for the Rumble result-data envelope. */
 record RankedBattleRecord(UUID battleId, Instant completedAt, ClientIdentity client, EngineIdentity engine,
                           String gameType, int rounds, int arenaWidth, int arenaHeight,
-                          List<RankedParticipant> participants, String replayHash) {
+                          long selectionSeed, List<RankedParticipant> participants, String replayHash) {
     RankedBattleRecord {
         participants = List.copyOf(participants);
     }
