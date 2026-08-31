@@ -60,12 +60,30 @@ class IssueOpsSubmissionTest {
             }
 
             @Override
-            public List<SubmissionReceipt> receipts(final URI repository, final SubmittedBatch batch) {
-                return List.of();
+            public SubmissionStatus status(final URI repository, final SubmittedBatch batch) {
+                return new SubmissionStatus(batch, List.of(), false);
             }
         };
 
         assertThrows(IOException.class, () -> new IssueOpsSubmission(unavailable, Clock.systemUTC()).submit(journal, snapshot()));
+        assertEquals(List.of(record), journal.pending());
+    }
+
+    @Test
+    @Tag("RCL-006")
+    void testRCL006_IntegrationNegative_terminallyRejectedBatchIsRetried() throws IOException {
+        final RankedBattleRecord record = record("676b8646-5993-4b60-9a1e-6112530d1e8d");
+        final RankedJournal journal = new RankedJournal(temporaryDirectory);
+        journal.append(record);
+        journal.recordSubmission(new SubmittedBatch(42, "https://github.com/example/rumble-data/issues/42",
+                List.of(record.battleId())));
+        final TerminalRejectionTransport transport = new TerminalRejectionTransport(record.battleId());
+
+        final SubmissionReport report = new IssueOpsSubmission(transport, Clock.systemUTC()).submit(journal, snapshot());
+
+        assertEquals(1, report.submitted().size());
+        assertEquals(1, transport.bodies.size());
+        assertTrue(transport.bodies.get(0).contains(record.battleId().toString()));
         assertEquals(List.of(record), journal.pending());
     }
 
@@ -121,8 +139,8 @@ class IssueOpsSubmissionTest {
         }
 
         @Override
-        public List<SubmissionReceipt> receipts(final URI repository, final SubmittedBatch batch) {
-            return List.of(new SubmissionReceipt(accepted, batch.issueUrl()));
+        public SubmissionStatus status(final URI repository, final SubmittedBatch batch) {
+            return new SubmissionStatus(batch, List.of(new SubmissionReceipt(accepted, batch.issueUrl())), false);
         }
     }
 
@@ -137,8 +155,28 @@ class IssueOpsSubmissionTest {
         }
 
         @Override
-        public List<SubmissionReceipt> receipts(final URI repository, final SubmittedBatch batch) {
-            return List.of();
+        public SubmissionStatus status(final URI repository, final SubmittedBatch batch) {
+            return new SubmissionStatus(batch, List.of(), false);
+        }
+    }
+
+    private static final class TerminalRejectionTransport implements IssueOpsTransport {
+        private final UUID battleId;
+        private final List<String> bodies = new ArrayList<>();
+
+        private TerminalRejectionTransport(final UUID battleId) {
+            this.battleId = battleId;
+        }
+
+        @Override
+        public SubmittedBatch createIssue(final URI repository, final String body, final String title) {
+            bodies.add(body);
+            return new SubmittedBatch(43, "https://github.com/example/rumble-data/issues/43", List.of(battleId));
+        }
+
+        @Override
+        public SubmissionStatus status(final URI repository, final SubmittedBatch batch) {
+            return new SubmissionStatus(batch, List.of(), batch.issueNumber() == 42);
         }
     }
 }

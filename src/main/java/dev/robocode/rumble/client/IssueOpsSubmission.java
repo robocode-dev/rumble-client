@@ -31,9 +31,13 @@ final class IssueOpsSubmission {
     }
 
     SubmissionReport submit(final RankedJournal journal, final RumbleSnapshot snapshot) throws IOException {
-        final List<SubmissionReceipt> receipts = collectReceipts(journal.unacknowledgedSubmissions(), snapshot);
+        final List<SubmissionStatus> statuses = collectStatuses(journal.unacknowledgedSubmissions(), snapshot);
+        final List<SubmissionReceipt> receipts = statuses.stream().flatMap(status -> status.receipts().stream()).toList();
         journal.acknowledge(receipts);
+        final Set<UUID> terminal = statuses.stream().filter(SubmissionStatus::terminal)
+                .flatMap(status -> status.batch().battleIds().stream()).collect(Collectors.toSet());
         final Set<UUID> inFlight = journal.unacknowledgedSubmissions().stream().flatMap(batch -> batch.battleIds().stream())
+                .filter(battleId -> !terminal.contains(battleId))
                 .collect(Collectors.toSet());
         final List<RankedBattleRecord> pending = journal.pending().stream().filter(record -> !inFlight.contains(record.battleId()))
                 .toList();
@@ -47,18 +51,16 @@ final class IssueOpsSubmission {
         return new SubmissionReport(receipts, submitted);
     }
 
-    private List<SubmissionReceipt> collectReceipts(final List<SubmittedBatch> submitted,
-                                                     final RumbleSnapshot snapshot) throws IOException {
-        final List<SubmissionReceipt> receipts = new ArrayList<>();
+    private List<SubmissionStatus> collectStatuses(final List<SubmittedBatch> submitted,
+                                                    final RumbleSnapshot snapshot) throws IOException {
+        final List<SubmissionStatus> statuses = new ArrayList<>();
         for (final SubmittedBatch batch : submitted) {
             final Set<UUID> expected = Set.copyOf(batch.battleIds());
-            for (final SubmissionReceipt receipt : transport.receipts(snapshot.canonicalDataRepository(), batch)) {
-                if (expected.contains(receipt.battleId())) {
-                    receipts.add(receipt);
-                }
-            }
+            final SubmissionStatus status = transport.status(snapshot.canonicalDataRepository(), batch);
+            statuses.add(new SubmissionStatus(batch, status.receipts().stream()
+                    .filter(receipt -> expected.contains(receipt.battleId())).toList(), status.terminal()));
         }
-        return receipts;
+        return statuses;
     }
 
     private static List<List<RankedBattleRecord>> batches(final List<RankedBattleRecord> records) {
@@ -110,5 +112,12 @@ record SubmissionReport(List<SubmissionReceipt> receipts, List<SubmittedBatch> s
 interface IssueOpsTransport {
     SubmittedBatch createIssue(URI repository, String body, String title) throws IOException;
 
-    List<SubmissionReceipt> receipts(URI repository, SubmittedBatch batch) throws IOException;
+    SubmissionStatus status(URI repository, SubmittedBatch batch) throws IOException;
+}
+
+/** One observed issue state, including its durable accepted-record receipts. */
+record SubmissionStatus(SubmittedBatch batch, List<SubmissionReceipt> receipts, boolean terminal) {
+    SubmissionStatus {
+        receipts = List.copyOf(receipts);
+    }
 }
