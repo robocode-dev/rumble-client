@@ -51,7 +51,7 @@ final class GitHubIssueOpsTransport implements IssueOpsTransport {
     }
 
     @Override
-    public List<SubmissionReceipt> receipts(final URI repository, final SubmittedBatch batch) throws IOException {
+    public SubmissionStatus status(final URI repository, final SubmittedBatch batch) throws IOException {
         final JsonArray comments = request("GET", endpoint(repository, "issues/" + batch.issueNumber()
                 + "/comments?per_page=100"), null).getAsJsonArray("comments");
         final List<SubmissionReceipt> receipts = new ArrayList<>();
@@ -61,7 +61,9 @@ final class GitHubIssueOpsTransport implements IssueOpsTransport {
                 receipts.addAll(receipts(body.getAsString(), batch.issueUrl()));
             }
         }
-        return receipts;
+        final JsonObject issue = request("GET", endpoint(repository, "issues/" + batch.issueNumber()), null);
+        final boolean terminal = "closed".equals(issue.get("state").getAsString());
+        return new SubmissionStatus(batch, receipts, terminal);
     }
 
     private JsonObject request(final String method, final URI endpoint, final String body) throws IOException {
