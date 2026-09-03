@@ -23,6 +23,17 @@ Every command runs the container read-only, with capabilities dropped and resour
 
 The client tracks posted batches locally and only drops them once their receipt comment appears on the closed issue; retrying an already-accepted submission is acknowledged idempotently rather than double-submitted.
 
+### Using Podman instead of Docker
+
+[Podman](https://podman.io) works as a lighter-weight alternative: it's daemonless and rootless by default, needs no background service, and speaks the same OCI image format and CLI as Docker — this repository's `Dockerfile` and every `docker run` flag the launcher scripts use (`--read-only`, `--cap-drop`, `--tmpfs`, `--mount`, resource limits) are standard OCI/Docker CLI features Podman also implements.
+
+The launcher scripts invoke the `docker` command by name, so either:
+
+- install the `podman-docker` compatibility package, which provides a `docker` command backed by Podman (available on most Linux distributions' package managers), or
+- alias it yourself for the session: `alias docker=podman` (Linux/macOS) or `Set-Alias docker podman` (PowerShell).
+
+Either way, `docker build --tag rumble-client:dev .` and every `docker/rumble.sh`/`.ps1` command above then run unchanged against Podman. This hasn't been exercised against every Podman version and platform combination — if you hit a rootless permission or `--tmpfs` incompatibility, please open an issue with the details.
+
 ## Building `rumble-client` itself
 
 Most contributors only need the Quickstart above. If you're changing this repository's own Java code, you need to build and test it, which still needs Gradle — but not installed on your machine. Run it inside a Gradle image matching this repository's pinned wrapper version (`gradle/wrapper/gradle-wrapper.properties`, currently 9.6.1), with your checkout bind-mounted:
