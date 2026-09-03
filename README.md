@@ -2,35 +2,62 @@
 
 The Rumble Client runs local Tank Royale battles against the published Rumble catalog. Ranked mode validates the current engine and catalog pin, journals every completed result with replay evidence, and submits batches through the Rumble data repository's issue inbox. Practice mode never creates a ranked record or submission.
 
-The project is currently being built under [Tank Royale change CH-012](https://github.com/robocode-dev/tank-royale/tree/main/changes/CH-012-create-rumble-client). The public contracts are owned by [CAP-016](https://github.com/robocode-dev/tank-royale/tree/main/docs/capabilities/CAP-016-rumble-client).
+This project is part of the [Tank Royale](https://github.com/robocode-dev/tank-royale) ecosystem; the client's public contracts (configuration, journal, and submission format) are documented there.
 
-Contributors may use the supported native distribution or the recommended Docker image. Docker supplies the complete Java, .NET, Python, and Node.js environment and is the isolation boundary for reviewed bot code; direct execution uses the same client contracts but runs bots with the contributor's host permissions. Production images are published only after Tank Royale releases the engine contracts required by ranked Rumble battles.
+## Quickstart (Docker, recommended)
 
-## Build
+Docker is the recommended way to build and run the client: it supplies the complete Java, .NET, Python, and Node.js environment every ranked bot needs, and is the isolation boundary for running reviewed-but-untrusted bot code. Docker Engine or Docker Desktop is required; nothing else.
 
-Install JDK 17 and keep a Tank Royale checkout containing BR-049 beside this repository, then run:
+1. Clone this repository.
+2. Build the image: `docker build --tag rumble-client:dev .`
+3. Copy `rumble-client.example.json` to `rumble-client.json` and edit it — see [Configuration](#configuration) below. Never commit the resulting file.
+4. Check your settings: `docker/rumble.sh validate rumble-client.json`
+5. Check the bundled runtimes: `docker/rumble.sh runtimes`
+6. Resolve the ranked catalog and prepare the bot cache: `docker/rumble.sh sync rumble-client.json`
+7. Run one ranked battle: `docker/rumble.sh run rumble-client.json`
+8. Submit pending results: `export RUMBLE_CLIENT_TOKEN=<your token>` then `docker/rumble.sh submit rumble-client.json`
+
+On PowerShell, use `docker/rumble.ps1 <validate|runtimes|sync|run|submit> [config-path] [image]` instead — for example `docker/rumble.ps1 run rumble-client.json`, and set `$env:RUMBLE_CLIENT_TOKEN` before `submit`.
+
+Every command runs the container read-only, with capabilities dropped and resource limits applied. Only `runtimes` also blocks network access outright; `validate`, `sync`, `run`, and `submit` all run with normal outbound network available. `run` needs it because it re-synchronizes the ranked snapshot before executing a battle (the same step `sync` performs) — so full network isolation during battle execution isn't available through this launcher without decoupling that resync step from `--run` in the client itself, which hasn't been done yet. `submit` needs it to reach the GitHub Issues API, and reads `RUMBLE_CLIENT_TOKEN` from your environment — use a GitHub fine-grained token limited to read/write Issues access on the Rumble data repository, and never write it to disk or commit it.
+
+The client tracks posted batches locally and only drops them once their receipt comment appears on the closed issue; retrying an already-accepted submission is acknowledged idempotently rather than double-submitted.
+
+### Using Podman instead of Docker
+
+[Podman](https://podman.io) works as a lighter-weight alternative: it's daemonless and rootless by default, needs no background service, and speaks the same OCI image format and CLI as Docker — this repository's `Dockerfile` and every `docker run` flag the launcher scripts use (`--read-only`, `--cap-drop`, `--tmpfs`, `--mount`, resource limits) are standard OCI/Docker CLI features Podman also implements.
+
+The launcher scripts invoke the `docker` command by name, so either:
+
+- install the `podman-docker` compatibility package, which provides a `docker` command backed by Podman (available on most Linux distributions' package managers), or
+- alias it yourself for the session: `alias docker=podman` (Linux/macOS) or `Set-Alias docker podman` (PowerShell).
+
+Either way, `docker build --tag rumble-client:dev .` and every `docker/rumble.sh`/`.ps1` command above then run unchanged against Podman. This hasn't been exercised against every Podman version and platform combination — if you hit a rootless permission or `--tmpfs` incompatibility, please open an issue with the details.
+
+## Building `rumble-client` itself
+
+Most contributors only need the Quickstart above. If you're changing this repository's own Java code, you need to build and test it, which still needs Gradle — but not installed on your machine. Run it inside a Gradle image matching this repository's pinned wrapper version (`gradle/wrapper/gradle-wrapper.properties`, currently 9.6.1), with your checkout bind-mounted:
 
 ```shell
-./gradlew --no-configuration-cache -PtankRoyaleSource=../tank-royale build
+docker run --rm -it -v "${PWD}:/workspace" -w /workspace gradle:9.6.1-jdk17 gradle build
 ```
 
-On PowerShell, quote the property argument: `.\gradlew.bat --no-configuration-cache "-PtankRoyaleSource=../tank-royale" build`.
+The same command works unchanged on PowerShell. Note this is a different Gradle version than the `gradle:8.14.3-jdk17` image the `Dockerfile`'s own build stage starts from — that stage still runs `./gradlew` inside it precisely so the wrapper's pinned 9.6.1 is what actually builds the release, regardless of the base image's bundled version. Keep the two in sync if either changes.
 
-The source substitution is the development dependency path until the Runner API is part of a value-bearing Tank Royale release. It compiles the client against `dev.robocode.tankroyale:robocode-tankroyale-runner` without publishing an interim artifact. CI and the Docker build pin the accepted Tank Royale merge commit rather than following a moving branch. Configuration caching is disabled for source-substituted builds because the included Tank Royale build does not support it.
+This repository currently depends on an unreleased Tank Royale Battle Runner version, built from a local Tank Royale checkout rather than a published Maven artifact — that's why CI and the `Dockerfile`'s own build stage pass `-PtankRoyaleSource=<path>`. To build against a local Tank Royale checkout the same way, mount it alongside your `rumble-client` checkout and add that property:
 
-The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required Java 17, .NET 8 SDK, Python 3.12, and Node.js 22 installations; the check never installs or changes them.
+```shell
+docker run --rm -it -v "${PWD}:/workspace" -v "${PWD}/../tank-royale:/tank-royale" -w /workspace \
+    gradle:9.6.1-jdk17 gradle -PtankRoyaleSource=/tank-royale build
+```
 
-The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Each game type declares how many bots one catalog entry expands to, so TwinDuel selects two team entries for its four pinned participants while `1v1` and melee select individual bots, and a selection never contains two entries that share a member bot. Run `./gradlew run --args="--run"` to execute one pinned ranked battle through Battle Runner and retain its replay evidence locally. Run `./gradlew run --args="--submit"` to post pending records through the `rumble-data` issue inbox. It reads `RUMBLE_CLIENT_TOKEN` only at runtime; use a GitHub fine-grained token limited to read and write Issues access for that repository. The client records posted batches locally and removes records only after their result-data receipt comments appear. The runtime container is added in a subsequent CH-012 task.
+This dependency becomes an ordinary published Maven Central artifact once Tank Royale releases the Battle Runner version this repository pins in `gradle.properties` — at that point this whole section, and the source-mount step, stop being necessary.
+
+If you already have JDK 17 and Gradle installed on your machine, the equivalent host commands work identically: `./gradlew build`, or `./gradlew -PtankRoyaleSource=../tank-royale build`.
 
 ## Configuration
 
-Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires a registered `clientId`; practice mode may omit it. The optional `workDirectory` selects the local cache, journal, and replay-evidence root and defaults to `.rumble-client` beside the configuration file. Do not commit the resulting file or any token. A submission token is supplied at runtime only when issue-ops support is available.
-
-## Docker development image
-
-Docker Engine or Docker Desktop is required. Build the current non-published development image with `docker build --tag rumble-client:dev .`, then use `docker/rumble.sh` or `docker/rumble.ps1` to validate configuration, check the bundled runtimes, or synchronize the ranked snapshot. Docker execution uses the default `.rumble-client` work directory beside the configuration file. The launchers expose only that configuration file and state directory to the container and apply a read-only root filesystem, dropped capabilities, finite resource limits, and no external network for the runtime check.
-
-Submission commands remain unavailable until their later CH-012 implementation tasks land. Their Docker launcher phases will run battles offline without a submission credential and submission online without starting bot code.
+Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires a registered `clientId` — see [`rumble-data`'s contributing guide](https://github.com/robocode-dev/rumble-data/blob/main/CONTRIBUTING.md) for the one-time registration pull request; practice mode may omit it. The optional `workDirectory` selects the local cache, journal, and replay-evidence root and defaults to `.rumble-client` beside the configuration file. Do not commit the resulting file or any token.
 
 ## Contributing
 
