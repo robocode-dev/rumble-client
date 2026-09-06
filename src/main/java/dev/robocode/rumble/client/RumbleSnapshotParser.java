@@ -15,7 +15,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Validates the mutually dependent documents in one Rumble data checkout.
+ * Validates the mutually dependent documents in one Rumble data checkout. Ranked mode additionally
+ * requires and validates the configured client's registration; practice mode needs no registration
+ * lookup, since it never journals or submits a result under that identity.
  */
 final class RumbleSnapshotParser {
     private static final Pattern COMMIT = Pattern.compile("[0-9a-f]{40}");
@@ -29,8 +31,10 @@ final class RumbleSnapshotParser {
                          final ClientConfiguration configuration) throws java.io.IOException {
         final EnginePin engine = parseEngine(checkout.read("engine.json"), configuration.gameTypes());
         final BotCatalog catalog = parseCatalog(checkout.read("catalog.json"), configuration.botsRepository());
-        final ClientRegistration registration = parseRegistration(checkout, configuration.clientId().orElseThrow(
-                () -> JsonContract.invalid("Ranked configuration is missing clientId")));
+        final ClientRegistration registration = configuration.mode() == ClientMode.RANKED
+                ? parseRegistration(checkout, configuration.clientId().orElseThrow(
+                        () -> JsonContract.invalid("Ranked configuration is missing clientId")))
+                : new ClientRegistration("practice", configuration.clientId().orElse("practice"));
         final Map<GameType, MatchAdvice> advice = new HashMap<>();
         for (final GameType gameType : configuration.gameTypes()) {
             final String path = "matchmaking/matches_needed-" + gameType.contractName() + ".json";

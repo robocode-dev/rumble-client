@@ -46,10 +46,13 @@ class RankedBattleExecutionTest {
 
     @Test
     @Tag("RCL-004")
-    void testRCL004_IntegrationNegative_practiceModeCannotCreateRankedResult() {
-        assertThrows(IllegalArgumentException.class, () -> execution(validExecutor(), UUID.randomUUID()).execute(selection(), cache(),
-                snapshot(), configuration(ClientMode.PRACTICE), "0.1.0"));
-        assertFalse(Files.exists(temporaryDirectory.resolve("work/evidence")));
+    void testRCL004_IntegrationPositive_practiceModeCanExecuteALocalBattle() throws IOException {
+        final UUID battleId = UUID.randomUUID();
+        final RankedBattleRecord record = execution(validExecutor(), battleId).execute(selection(), cache(),
+                snapshot(), configuration(ClientMode.PRACTICE), "0.1.0");
+
+        assertEquals(battleId, record.battleId());
+        assertTrue(Files.isRegularFile(temporaryDirectory.resolve("work/evidence").resolve(battleId + ".battle.gz")));
     }
 
     @Test

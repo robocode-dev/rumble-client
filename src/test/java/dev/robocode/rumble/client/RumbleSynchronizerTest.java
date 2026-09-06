@@ -141,16 +141,16 @@ class RumbleSynchronizerTest {
     }
 
     @Test
-    @Tag("Unit")
-    void testUnitNegative_rejectsSynchronizationInPracticeModeBeforeRepositoryAccess() {
+    @Tag("RCL-004")
+    void testRCL004_UnitPositive_synchronizesInPracticeModeUsingLocalSources() throws IOException {
         final InMemoryRepositoryReader repositories = validRepositories();
         final ClientConfiguration practiceConfiguration = new ClientConfiguration(BOTS_REPOSITORY,
                 PREVIOUS_REPOSITORY, Optional.empty(), Set.of(), Set.of(GameType.ONE_VS_ONE), 10,
                 ClientMode.PRACTICE, Path.of("work"));
 
-        assertThrows(IllegalArgumentException.class,
-                () -> new RumbleSynchronizer(repositories).synchronize(practiceConfiguration));
-        assertEquals(List.of(), repositories.requestedRepositories());
+        final RumbleSnapshot snapshot = new RumbleSynchronizer(repositories).synchronize(practiceConfiguration);
+
+        assertEquals(CANONICAL_REPOSITORY, snapshot.canonicalDataRepository());
     }
 
     private static ClientConfiguration configuration() {

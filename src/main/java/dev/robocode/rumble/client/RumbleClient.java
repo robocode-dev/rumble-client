@@ -62,14 +62,18 @@ public final class RumbleClient {
 
         final Path configurationPath = arguments.length == 2 ? Path.of(arguments[1]) : DEFAULT_CONFIGURATION_PATH;
         final ClientConfiguration configuration = new ClientConfigurationLoader().load(configurationPath);
+        if (arguments[0].equals(SUBMIT_OPTION) && !configuration.mode().permitsRankedJournal()) {
+            throw new IllegalArgumentException("Practice mode has no ranked journal to submit; submit requires ranked mode");
+        }
         if (arguments[0].equals(SYNCHRONIZE_OPTION) || arguments[0].equals(RUN_OPTION)
                 || arguments[0].equals(SUBMIT_OPTION)) {
             final GitRepositoryReader repositoryReader = new GitRepositoryReader();
             final RumbleSnapshot snapshot = new RumbleSynchronizer(repositoryReader).synchronize(configuration);
             if (arguments[0].equals(RUN_OPTION)) {
                 final PreparedBotCache botCache = new BotCachePreparer(repositoryReader).prepare(snapshot, configuration);
-                final RankedJournal journal = new RankedJournal(configuration.workDirectory());
-                final int quarantined = journal.quarantineObsolete(snapshot.engine().behaviorVersion()).size();
+                final boolean ranked = configuration.mode().permitsRankedJournal();
+                final RankedJournal journal = ranked ? new RankedJournal(configuration.workDirectory()) : null;
+                final int quarantined = ranked ? journal.quarantineObsolete(snapshot.engine().behaviorVersion()).size() : 0;
                 final GameType gameType = configuration.gameTypes().stream()
                         .min(Comparator.comparing(GameType::contractName)).orElseThrow();
                 final BattleSelection selection = new RankedBattleSelector().select(snapshot, configuration, gameType,
@@ -77,12 +81,15 @@ public final class RumbleClient {
                 final RankedBattleRecord record = new RankedBattleExecution(new RunnerBattleExecutor(),
                         Clock.systemUTC(), UUID::randomUUID).execute(selection, botCache, snapshot, configuration,
                         clientVersion());
-                journal.append(record);
+                if (ranked) {
+                    journal.append(record);
+                }
                 if (quarantined > 0) {
                     output.printf("Quarantined %d records from an obsolete behavior-version epoch.%n", quarantined);
                 }
-                output.printf("Completed ranked %s battle %s; replay evidence is retained at %s.%n",
-                        record.gameType(), record.battleId(), configuration.workDirectory().resolve("evidence"));
+                output.printf("Completed %s %s battle %s; replay evidence is retained at %s.%n",
+                        configuration.mode().displayName(), record.gameType(), record.battleId(),
+                        configuration.workDirectory().resolve("evidence"));
                 return;
             }
             if (arguments[0].equals(SUBMIT_OPTION)) {
@@ -123,9 +130,9 @@ public final class RumbleClient {
         output.println();
         output.println("Use --validate-config to check a local ranked or practice configuration.");
         output.println("Use --check-runtimes to verify native Java, .NET, Python, and Node.js prerequisites.");
-        output.println("Use --sync to validate the current ranked snapshot and prepare its immutable bot cache.");
-        output.println("Use --run to execute one ranked battle and retain its local replay evidence.");
-        output.println("Use --submit to send pending ranked records with the RUMBLE_CLIENT_TOKEN Issues-only credential.");
+        output.println("Use --sync to validate the current snapshot and prepare its immutable bot cache, in ranked or practice mode.");
+        output.println("Use --run to execute one battle and retain its local replay evidence, in ranked or practice mode.");
+        output.println("Use --submit to send pending ranked records with the RUMBLE_CLIENT_TOKEN Issues-only credential; ranked mode only.");
     }
 
     private static void printRuntimeReport(final RuntimeReport report, final PrintStream output) {
