@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 class RumbleClientTest {
@@ -53,5 +55,31 @@ class RumbleClientTest {
                 RumbleClient.run(new String[] {"--check-runtimes"}, System.out, () ->
                         new RuntimeReport(List.of(RuntimeStatus.failure(".NET SDK", version,
                                 "command unavailable")))));
+    }
+
+    @Test
+    @Tag("RCL-004")
+    void testRCL004_UnitNegative_rejectsSubmitInPracticeModeBeforeRepositoryAccess() throws IOException {
+        final Path configurationPath = writePracticeConfiguration();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> RumbleClient.run(new String[] {"--submit", configurationPath.toString()}, System.out));
+    }
+
+    private static Path writePracticeConfiguration() throws IOException {
+        final Path configurationPath = Files.createTempFile("rumble-client", ".json");
+        Files.writeString(configurationPath, """
+                {
+                  "schemaVersion": 1,
+                  "botsRepo": "https://github.com/robocode-dev/rumble-bots",
+                  "dataRepo": "https://github.com/robocode-dev/rumble-data",
+                  "myBots": [],
+                  "gameTypes": ["1v1", "twinduel", "melee"],
+                  "battlesPerSession": 50,
+                  "mode": "practice",
+                  "workDirectory": ".rumble-client"
+                }
+                """);
+        return configurationPath;
     }
 }

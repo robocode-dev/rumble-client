@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * Materializes and validates the immutable bot sources pinned by a ranked snapshot.
+ * Materializes and validates the immutable bot sources pinned by a snapshot, for ranked or practice mode alike.
  */
 final class BotCachePreparer {
     private final RepositoryReader repositoryReader;
@@ -24,9 +24,6 @@ final class BotCachePreparer {
 
     PreparedBotCache prepare(final RumbleSnapshot snapshot, final ClientConfiguration configuration)
             throws IOException {
-        if (configuration.mode() != ClientMode.RANKED) {
-            throw new IllegalArgumentException("Bot cache preparation requires ranked mode");
-        }
         final String sourceCommit = snapshot.catalog().sourceCommit();
         final Path cacheParent = configuration.workDirectory().resolve("cache/bots");
         final Path cacheDirectory = cacheParent.resolve(sourceCommit);
