@@ -2,13 +2,19 @@
 set -eu
 
 usage() {
-    echo "Usage: docker/rumble.sh <validate|runtimes|sync> [config-path] [image]" >&2
+    echo "Usage: CONTAINER_ENGINE=docker|podman docker/rumble.sh <validate|runtimes|sync> [config-path] [image]" >&2
     exit 2
 }
 
 command_name="${1:-}"
 config_path="${2:-rumble-client.json}"
 image="${3:-rumble-client:dev}"
+container_engine="${CONTAINER_ENGINE:-docker}"
+
+case "$container_engine" in
+    docker|podman) ;;
+    *) usage ;;
+esac
 
 case "$command_name" in
     validate) client_arguments="--validate-config /work/rumble-client.json" ;;
@@ -18,7 +24,7 @@ case "$command_name" in
 esac
 
 if [ "$command_name" = "runtimes" ]; then
-    exec docker run --rm --read-only --network none --tmpfs /tmp:rw,nosuid,nodev,size=1g \
+    exec "$container_engine" run --rm --read-only --network none --tmpfs /tmp:rw,nosuid,nodev,size=1g \
         --user "$(id -u):$(id -g)" \
         --cpus 4 --memory 8g --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges \
         "$image" --check-runtimes
@@ -30,7 +36,7 @@ absolute_config="$config_directory/$config_name"
 state_directory="$config_directory/.rumble-client"
 mkdir -p "$state_directory"
 
-exec docker run --rm --read-only --tmpfs /tmp:rw,nosuid,nodev,size=1g \
+exec "$container_engine" run --rm --read-only --tmpfs /tmp:rw,nosuid,nodev,size=1g \
     --user "$(id -u):$(id -g)" \
     --cpus 4 --memory 8g --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges \
     --mount "type=bind,source=$absolute_config,target=/work/rumble-client.json,readonly" \

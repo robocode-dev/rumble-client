@@ -7,8 +7,19 @@ param(
     [string] $Configuration = 'rumble-client.json',
 
     [Parameter(Position = 2)]
-    [string] $Image = 'rumble-client:dev'
+    [string] $Image = 'rumble-client:dev',
+
+    [Parameter(Position = 3)]
+    [ValidateSet('docker', 'podman')]
+    [string] $Engine = ''
 )
+
+if ([string]::IsNullOrWhiteSpace($Engine)) {
+    $Engine = if ([string]::IsNullOrWhiteSpace($env:CONTAINER_ENGINE)) { 'docker' } else { $env:CONTAINER_ENGINE }
+}
+if ($Engine -notin @('docker', 'podman')) {
+    throw "Container engine must be 'docker' or 'podman'."
+}
 
 $clientArguments = switch ($Command) {
     'validate' { @('--validate-config', '/work/rumble-client.json') }
@@ -16,7 +27,7 @@ $clientArguments = switch ($Command) {
     'sync' { @('--sync', '/work/rumble-client.json') }
 }
 
-$dockerArguments = @(
+$containerArguments = @(
     'run', '--rm', '--read-only', '--tmpfs', '/tmp:rw,nosuid,nodev,size=1g',
     '--cpus', '4', '--memory', '8g', '--pids-limit', '512',
     '--cap-drop', 'ALL', '--security-opt', 'no-new-privileges'
@@ -24,22 +35,22 @@ $dockerArguments = @(
 if ($IsLinux -or $IsMacOS) {
     $userId = (& id -u).Trim()
     $groupId = (& id -g).Trim()
-    $dockerArguments += @('--user', "${userId}:${groupId}")
+    $containerArguments += @('--user', "${userId}:${groupId}")
 }
 if ($Command -eq 'runtimes') {
-    $dockerArguments += @('--network', 'none')
+    $containerArguments += @('--network', 'none')
 } else {
     $configurationPath = (Resolve-Path -LiteralPath $Configuration).Path
     $configurationDirectory = Split-Path -Parent $configurationPath
     $stateDirectory = Join-Path $configurationDirectory '.rumble-client'
     New-Item -ItemType Directory -Force -Path $stateDirectory | Out-Null
-    $dockerArguments += @(
+    $containerArguments += @(
         '--mount', "type=bind,source=$configurationPath,target=/work/rumble-client.json,readonly",
         '--mount', "type=bind,source=$stateDirectory,target=/work/.rumble-client"
     )
 }
-$dockerArguments += $Image
-$dockerArguments += $clientArguments
+$containerArguments += $Image
+$containerArguments += $clientArguments
 
-& docker @dockerArguments
+& $Engine @containerArguments
 exit $LASTEXITCODE
