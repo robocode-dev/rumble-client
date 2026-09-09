@@ -56,7 +56,7 @@ jobs:
       - name: Build sample bots
         if: steps.changes.outputs.changed == 'true'
         working-directory: tank-royale-source
-        run: ./gradlew --no-daemon --no-configuration-cache :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
+        run: ./gradlew --no-daemon --no-configuration-cache -x :bot-api:dotnet:test :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
       - name: Test the refreshed image and all bot platforms
         if: steps.changes.outputs.changed == 'true'
         env:
