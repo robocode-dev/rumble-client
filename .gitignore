@@ -7,3 +7,4 @@ rumble-client.json
 evidence/
 journal/
 cache/
+__pycache__/

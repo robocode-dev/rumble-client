@@ -33,11 +33,15 @@ final class RuntimePrerequisiteChecker {
         final List<RuntimeStatus> statuses = new ArrayList<>();
         statuses.add(checkRuntime("Java", List.of(List.of("java", "-version")), required.get("java")));
         statuses.add(checkRuntime(".NET SDK", List.of(List.of("dotnet", "--version")), required.get("dotnet")));
-        statuses.add(checkRuntime("Python", List.of(List.of("python3.12", "--version"),
-                List.of("py", "-3.12", "--version"), List.of("python3", "--version"),
-                List.of("python", "--version")), required.get("python")));
+        statuses.add(checkRuntime("Python", pythonCommands(required.get("python")), required.get("python")));
         statuses.add(checkRuntime("Node.js", List.of(List.of("node", "--version")), required.get("node")));
         return new RuntimeReport(statuses);
+    }
+
+    private static List<List<String>> pythonCommands(final RequiredVersion required) {
+        final String version = required.display();
+        return List.of(List.of("python" + version, "--version"), List.of("py", "-" + version, "--version"),
+                List.of("python3", "--version"), List.of("python", "--version"));
     }
 
     private RuntimeStatus checkRuntime(final String name, final List<List<String>> commands,
