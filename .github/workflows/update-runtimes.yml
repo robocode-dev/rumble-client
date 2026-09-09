@@ -55,7 +55,8 @@ jobs:
           node-version: '24'
       - name: Build sample bots
         if: steps.changes.outputs.changed == 'true'
-        run: ./tank-royale-source/gradlew --no-daemon --no-configuration-cache :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
+        working-directory: tank-royale-source
+        run: ./gradlew --no-daemon --no-configuration-cache :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
       - name: Test the refreshed image and all bot platforms
         if: steps.changes.outputs.changed == 'true'
         env:

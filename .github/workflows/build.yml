@@ -65,7 +65,8 @@ jobs:
       - name: Test runtime refresh logic
         run: python scripts/test_update_runtime_versions.py
       - name: Build four-language smoke bots
-        run: ./tank-royale-source/gradlew --no-daemon --no-configuration-cache :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
+        working-directory: tank-royale-source
+        run: ./gradlew --no-daemon --no-configuration-cache :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
       - uses: docker/setup-buildx-action@v3
       - name: Build and verify the hardened four-language container
         env:
