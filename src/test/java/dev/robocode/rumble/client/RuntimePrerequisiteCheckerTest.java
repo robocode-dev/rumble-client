@@ -15,10 +15,10 @@ class RuntimePrerequisiteCheckerTest {
     @Tag("Unit")
     void testUnitPositive_acceptsEveryPinnedRuntimeLane() throws IOException {
         final Map<String, String> versions = Map.of(
-                "java", "openjdk version \"17.0.16\"",
-                "dotnet", "8.0.419",
-                "python3.12", "Python 3.12.11",
-                "node", "v22.18.0");
+                "java", "openjdk version \"25.0.1\"",
+                "dotnet", "10.0.112",
+                "python3.14", "Python 3.14.7",
+                "node", "v24.21.0");
 
         final RuntimeReport report = new RuntimePrerequisiteChecker(command ->
                 new CommandResult(0, versions.get(command.get(0)))).check();
@@ -33,10 +33,10 @@ class RuntimePrerequisiteCheckerTest {
         final RuntimeReport report = new RuntimePrerequisiteChecker(command -> {
             invoked.add(List.copyOf(command));
             return switch (command.get(0)) {
-                case "java" -> new CommandResult(0, "openjdk version \"21.0.8\"");
+                case "java" -> new CommandResult(0, "openjdk version \"26.0.1\"");
                 case "dotnet" -> throw new IOException("command unavailable");
-                case "python3.12" -> new CommandResult(0, "Python 3.12.11");
-                case "node" -> new CommandResult(0, "v22.18.0");
+                case "python3.14" -> new CommandResult(0, "Python 3.14.7");
+                case "node" -> new CommandResult(0, "v24.21.0");
                 default -> throw new IOException("command unavailable");
             };
         }).check();

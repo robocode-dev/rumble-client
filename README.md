@@ -18,7 +18,11 @@ On PowerShell, quote the property argument: `.\gradlew.bat --no-configuration-ca
 
 The source substitution is the development dependency path until the Runner API is part of a value-bearing Tank Royale release. It compiles the client against `dev.robocode.tankroyale:robocode-tankroyale-runner` without publishing an interim artifact. CI and the container build pin the accepted Tank Royale merge commit rather than following a moving branch. Configuration caching is disabled for source-substituted builds because the included Tank Royale build does not support it.
 
-The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required Java 17, .NET 8 SDK, Python 3.12, and Node.js 22 installations; the check never installs or changes them.
+The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required native installations; the check never installs or changes them.
+
+<!-- runtime-versions:start -->
+The container and native preflight currently target Java 25, .NET 10, Python 3.14, and Node.js 24 (Node.js installer 24.21.0). This block is refreshed by the scheduled runtime update workflow.
+<!-- runtime-versions:end -->
 
 The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Each game type declares how many bots one catalog entry expands to, so TwinDuel selects two team entries for its four pinned participants while `1v1` and melee select individual bots, and a selection never contains two entries that share a member bot. Run `./gradlew run --args="--run"` to execute one pinned ranked battle through Battle Runner and retain its replay evidence locally. Run `./gradlew run --args="--submit"` to post pending records through the `rumble-data` issue inbox. It reads `RUMBLE_CLIENT_TOKEN` only at runtime; use a GitHub fine-grained token limited to read and write Issues access for that repository. The client records posted batches locally and removes records only after their result-data receipt comments appear. See the Docker and Podman development image section below for the isolated multi-runtime container.
 
@@ -36,6 +40,8 @@ Build the image with one of these commands:
 docker build --tag rumble-client:dev .
 podman build --tag rumble-client:dev .
 ```
+
+To run the four-language container smoke check locally, build the sample-bot archives and run `CONTAINER_ENGINE=podman TANK_ROYALE_SOURCE=../tank-royale bash scripts/verify-container.sh`; Docker is the default engine.
 
 Use the launcher scripts for configuration validation, runtime checks, and snapshot synchronization. The shell launcher selects Docker by default and accepts `CONTAINER_ENGINE=podman`; the PowerShell launcher accepts `-Engine podman` or the same `CONTAINER_ENGINE` environment variable:
 

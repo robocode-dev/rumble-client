@@ -38,18 +38,18 @@ class RumbleClientTest {
     @Tag("Unit")
     void testUnitPositive_printsSuccessfulRuntimePreflight() throws IOException {
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        final RequiredVersion version = new RequiredVersion(17, 0, false);
+        final RequiredVersion version = new RequiredVersion(25, 0, false);
 
         RumbleClient.run(new String[] {"--check-runtimes"}, new PrintStream(bytes), () ->
-                new RuntimeReport(List.of(RuntimeStatus.success("Java", version, "17.0.16"))));
+                new RuntimeReport(List.of(RuntimeStatus.success("Java", version, "25.0.1"))));
 
-        assertTrue(bytes.toString().contains("OK Java (required 17): 17.0.16"));
+        assertTrue(bytes.toString().contains("OK Java (required 25): 25.0.1"));
     }
 
     @Test
     @Tag("Unit")
     void testUnitNegative_failsRuntimePreflightWhenAnyRuntimeIsUnavailable() {
-        final RequiredVersion version = new RequiredVersion(8, 0, false);
+        final RequiredVersion version = new RequiredVersion(10, 0, false);
 
         assertThrows(IllegalArgumentException.class, () ->
                 RumbleClient.run(new String[] {"--check-runtimes"}, System.out, () ->
