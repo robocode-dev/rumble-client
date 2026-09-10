@@ -18,9 +18,6 @@ TANK_ROYALE_COMMIT="$(tr -d '[:space:]' < TANK_ROYALE_COMMIT)"
     --cap-drop ALL --security-opt no-new-privileges "${IMAGE_TAG}" --check-runtimes
 test "$("${CONTAINER_ENGINE}" run --rm --entrypoint id "${IMAGE_TAG}" -u)" != "0"
 
-RUNTIME_UID=10001
-RUNTIME_GID=10001
-
 DOTNET_PREP_VOLUME="rumble-client-smoke-dotnet-$$"
 TYPESCRIPT_PREP_VOLUME="rumble-client-smoke-typescript-$$"
 
@@ -30,21 +27,12 @@ cleanup_prep_volumes() {
 
 trap cleanup_prep_volumes EXIT
 
-own_prep_volume() {
-    local volume_name="$1"
-
-    "${CONTAINER_ENGINE}" run --rm --read-only --network none --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g \
-        --cap-drop ALL --security-opt no-new-privileges --user 0:0 \
-        --mount "type=volume,source=${volume_name},target=/work/bot" \
-        --entrypoint chown "${IMAGE_TAG}" \
-        "${RUNTIME_UID}:${RUNTIME_GID}" /work/bot
-}
-
 prepare_dotnet_archive() {
     "${CONTAINER_ENGINE}" volume create "${DOTNET_PREP_VOLUME}" >/dev/null
-    own_prep_volume "${DOTNET_PREP_VOLUME}"
+    # The disposable volume starts root-owned. Preparation may initialize it as root;
+    # the actual smoke container mounts it read-only and remains non-root.
     "${CONTAINER_ENGINE}" run --rm --read-only --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g \
-        --cap-drop ALL --security-opt no-new-privileges --user "${RUNTIME_UID}:${RUNTIME_GID}" \
+        --cap-drop ALL --security-opt no-new-privileges --user 0:0 \
         --mount "type=bind,source=${TANK_ROYALE_SOURCE}/sample-bots/csharp/build/archive,target=/mnt/source,readonly" \
         --mount "type=volume,source=${DOTNET_PREP_VOLUME},target=/work/bot" \
         --entrypoint sh "${IMAGE_TAG}" \
@@ -53,9 +41,10 @@ prepare_dotnet_archive() {
 
 prepare_typescript_archive() {
     "${CONTAINER_ENGINE}" volume create "${TYPESCRIPT_PREP_VOLUME}" >/dev/null
-    own_prep_volume "${TYPESCRIPT_PREP_VOLUME}"
+    # See the C# preparation lane above; the volume is disposable and read-only
+    # in the real smoke container.
     "${CONTAINER_ENGINE}" run --rm --read-only --tmpfs /tmp:rw,nosuid,nodev,noexec,size=1g \
-        --cap-drop ALL --security-opt no-new-privileges --user "${RUNTIME_UID}:${RUNTIME_GID}" \
+        --cap-drop ALL --security-opt no-new-privileges --user 0:0 \
         --mount "type=bind,source=${TANK_ROYALE_SOURCE}/sample-bots/typescript/build/archive,target=/mnt/source,readonly" \
         --mount "type=volume,source=${TYPESCRIPT_PREP_VOLUME},target=/work/bot" \
         --entrypoint sh "${IMAGE_TAG}" \
