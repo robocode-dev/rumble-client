@@ -30,5 +30,6 @@ try (var runner = BattleRunner.create(builder -> builder.embeddedServer().requir
     );
     System.out.println(output);
 } catch (Throwable error) {
-    throw new RuntimeException("Container smoke battle failed", error);
+    error.printStackTrace();
+    System.exit(1);
 }

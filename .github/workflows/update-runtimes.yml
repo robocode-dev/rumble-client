@@ -32,12 +32,17 @@ jobs:
           else
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
+      - name: Read the pinned Tank Royale commit
+        if: steps.changes.outputs.changed == 'true'
+        id: pin
+        shell: bash
+        run: echo "commit=$(tr -d '[:space:]' < TANK_ROYALE_COMMIT)" >> "$GITHUB_OUTPUT"
       - name: Check out the pinned Tank Royale source
         if: steps.changes.outputs.changed == 'true'
         uses: actions/checkout@v4
         with:
           repository: robocode-dev/tank-royale
-          ref: fd06b97a61c9aa264e6964520a30262f8f8be751
+          ref: ${{ steps.pin.outputs.commit }}
           path: tank-royale-source
           persist-credentials: false
       - uses: actions/setup-java@v5
@@ -55,8 +60,7 @@ jobs:
           node-version: '24'
       - name: Build sample bots
         if: steps.changes.outputs.changed == 'true'
-        working-directory: tank-royale-source
-        run: ./gradlew --no-daemon --no-configuration-cache -x :bot-api:dotnet:test :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
+        run: bash scripts/build-sample-bots.sh tank-royale-source
       - name: Test the refreshed image and all bot platforms
         if: steps.changes.outputs.changed == 'true'
         env:
@@ -67,6 +71,9 @@ jobs:
         uses: peter-evans/create-pull-request@v7
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          add-paths: |
+            src/main/resources/runtime-versions.properties
+            README.md
           branch: automation/runtime-refresh
           delete-branch: true
           commit-message: 'chore: refresh Rumble runtime lanes'

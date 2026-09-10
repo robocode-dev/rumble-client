@@ -16,10 +16,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+      - name: Read the pinned Tank Royale commit
+        id: pin
+        shell: bash
+        run: echo "commit=$(tr -d '[:space:]' < TANK_ROYALE_COMMIT)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           repository: robocode-dev/tank-royale
-          ref: fd06b97a61c9aa264e6964520a30262f8f8be751
+          ref: ${{ steps.pin.outputs.commit }}
           path: tank-royale-source
           persist-credentials: false
       - uses: actions/setup-java@v5
@@ -43,10 +47,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Read the pinned Tank Royale commit
+        id: pin
+        shell: bash
+        run: echo "commit=$(tr -d '[:space:]' < TANK_ROYALE_COMMIT)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           repository: robocode-dev/tank-royale
-          ref: fd06b97a61c9aa264e6964520a30262f8f8be751
+          ref: ${{ steps.pin.outputs.commit }}
           path: tank-royale-source
           persist-credentials: false
       - uses: actions/setup-java@v5
@@ -65,8 +73,7 @@ jobs:
       - name: Test runtime refresh logic
         run: python scripts/test_update_runtime_versions.py
       - name: Build four-language smoke bots
-        working-directory: tank-royale-source
-        run: ./gradlew --no-daemon --no-configuration-cache -x :bot-api:dotnet:test :sample-bots:java:build :sample-bots:csharp:build :sample-bots:python:build :sample-bots:typescript:build
+        run: bash scripts/build-sample-bots.sh tank-royale-source
       - uses: docker/setup-buildx-action@v3
       - name: Build and verify the hardened four-language container
         env:
