@@ -9,16 +9,13 @@ import java.util.Random;
 import java.util.Set;
 
 /**
- * Turns non-exclusive matchmaking advice into a reproducible ranked battle.
+ * Turns non-exclusive matchmaking advice into a reproducible battle, for ranked or practice mode alike.
  */
 final class RankedBattleSelector {
     private static final int GLOBAL_PRIORITY_CANDIDATE_LIMIT = 10;
 
     BattleSelection select(final RumbleSnapshot snapshot, final ClientConfiguration configuration,
                            final GameType gameType, final long randomSeed) {
-        if (configuration.mode() != ClientMode.RANKED) {
-            throw new IllegalArgumentException("Ranked battle selection requires ranked mode");
-        }
         final GameTypeSettings settings = requireSettings(snapshot, gameType);
         final MatchAdvice advice = requireAdvice(snapshot, gameType);
         final List<CatalogBot> availableBots = snapshot.catalog().activeBots().values().stream()

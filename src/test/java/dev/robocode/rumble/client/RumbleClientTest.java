@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.PrintStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 
 class RumbleClientTest {
@@ -36,22 +38,48 @@ class RumbleClientTest {
     @Tag("Unit")
     void testUnitPositive_printsSuccessfulRuntimePreflight() throws IOException {
         final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        final RequiredVersion version = new RequiredVersion(17, 0, false);
+        final RequiredVersion version = new RequiredVersion(25, 0, false);
 
         RumbleClient.run(new String[] {"--check-runtimes"}, new PrintStream(bytes), () ->
-                new RuntimeReport(List.of(RuntimeStatus.success("Java", version, "17.0.16"))));
+                new RuntimeReport(List.of(RuntimeStatus.success("Java", version, "25.0.1"))));
 
-        assertTrue(bytes.toString().contains("OK Java (required 17): 17.0.16"));
+        assertTrue(bytes.toString().contains("OK Java (required 25): 25.0.1"));
     }
 
     @Test
     @Tag("Unit")
     void testUnitNegative_failsRuntimePreflightWhenAnyRuntimeIsUnavailable() {
-        final RequiredVersion version = new RequiredVersion(8, 0, false);
+        final RequiredVersion version = new RequiredVersion(10, 0, false);
 
         assertThrows(IllegalArgumentException.class, () ->
                 RumbleClient.run(new String[] {"--check-runtimes"}, System.out, () ->
                         new RuntimeReport(List.of(RuntimeStatus.failure(".NET SDK", version,
                                 "command unavailable")))));
+    }
+
+    @Test
+    @Tag("RCL-004")
+    void testRCL004_UnitNegative_rejectsSubmitInPracticeModeBeforeRepositoryAccess() throws IOException {
+        final Path configurationPath = writePracticeConfiguration();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> RumbleClient.run(new String[] {"--submit", configurationPath.toString()}, System.out));
+    }
+
+    private static Path writePracticeConfiguration() throws IOException {
+        final Path configurationPath = Files.createTempFile("rumble-client", ".json");
+        Files.writeString(configurationPath, """
+                {
+                  "schemaVersion": 1,
+                  "botsRepo": "https://github.com/robocode-dev/rumble-bots",
+                  "dataRepo": "https://github.com/robocode-dev/rumble-data",
+                  "myBots": [],
+                  "gameTypes": ["1v1", "twinduel", "melee"],
+                  "battlesPerSession": 50,
+                  "mode": "practice",
+                  "workDirectory": ".rumble-client"
+                }
+                """);
+        return configurationPath;
     }
 }

@@ -14,7 +14,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Supplier;
 
-/** Validates one completed ranked battle and binds its immutable result to retained replay evidence. */
+/**
+ * Validates one completed battle and binds its immutable result to retained replay evidence, for
+ * ranked or practice mode alike; only ranked mode journals or submits the resulting record.
+ */
 final class RankedBattleExecution {
     private final BattleExecutor executor;
     private final Clock clock;
@@ -29,9 +32,6 @@ final class RankedBattleExecution {
     RankedBattleRecord execute(final BattleSelection selection, final PreparedBotCache cache,
                                final RumbleSnapshot snapshot, final ClientConfiguration configuration,
                                final String clientVersion) throws IOException {
-        if (configuration.mode() != ClientMode.RANKED) {
-            throw new IllegalArgumentException("Ranked battle execution requires ranked mode");
-        }
         final GameTypeSettings settings = requireSettings(snapshot, selection.gameType());
         final UUID battleId = battleIds.get();
         final Path recordingDirectory = configuration.workDirectory().resolve("recordings").resolve(battleId.toString());

@@ -6,7 +6,7 @@ import java.util.HashSet;
 import java.util.Set;
 
 /**
- * Resolves the canonical data repository and validates one ranked input snapshot.
+ * Resolves the canonical data repository and validates one input snapshot, for ranked or practice mode alike.
  */
 final class RumbleSynchronizer {
     private static final int MAX_CANONICAL_HOPS = 5;
@@ -24,9 +24,6 @@ final class RumbleSynchronizer {
     }
 
     RumbleSnapshot synchronize(final ClientConfiguration configuration) throws IOException {
-        if (configuration.mode() != ClientMode.RANKED) {
-            throw new IllegalArgumentException("Ranked synchronization requires ranked mode");
-        }
         try (RepositoryReader.RepositoryCheckout checkout = openCanonical(configuration.dataRepository())) {
             return parser.parse(checkout, configuration);
         }

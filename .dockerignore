@@ -3,6 +3,7 @@
 .gradle
 .idea
 build
+tank-royale-source
 cache
 evidence
 journal
