@@ -61,16 +61,13 @@ jobs:
           docker tag "${VERSION_TAG}" ghcr.io/robocode-dev/rumble-client:latest
           docker push "${VERSION_TAG}"
           docker push ghcr.io/robocode-dev/rumble-client:latest
-      - name: Set the GHCR package to public
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh api --method PATCH /orgs/robocode-dev/packages/container/rumble-client -f visibility=public \
-            || echo "::warning::Could not set ghcr.io/robocode-dev/rumble-client to public automatically; the next step will fail if it is still private. Set visibility to public in the package's GHCR settings."
       - name: Confirm the image is publicly pullable
         env:
           VERSION_TAG: ghcr.io/robocode-dev/rumble-client:${{ steps.version.outputs.version }}
         run: |
           docker logout ghcr.io
           docker rmi "${VERSION_TAG}" ghcr.io/robocode-dev/rumble-client:latest
-          docker pull "${VERSION_TAG}"
+          docker pull "${VERSION_TAG}" || {
+            echo "::error::${VERSION_TAG} is not publicly pullable. GitHub's API cannot set package visibility; a maintainer must set it to public once, by hand, in the package's GHCR settings (Package settings > Danger Zone > Change visibility), then re-run this workflow."
+            exit 1
+          }
