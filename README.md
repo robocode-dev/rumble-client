@@ -57,7 +57,12 @@ Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires 
 
 ## Docker and Podman development image
 
-The non-published development image can be built and run with Docker Engine, Docker Desktop, or Podman. The examples below use Docker; replace `docker` with `podman` when invoking the image directly. On Windows, Podman Desktop needs a running Linux virtual machine and can use WSL2 or Hyper-V as the provider; choose the provider when creating the machine. Podman Desktop/WSL2 has been manually verified for this image on Windows; rootless Linux Podman state-directory behavior remains a separate verification target and is not part of CI.
+The non-published development image can be built and run with Docker Engine, Docker Desktop, or Podman. The examples below use Docker; replace `docker` with `podman` when invoking the image directly. On Windows, Podman Desktop needs a running Linux virtual machine and can use WSL2 or Hyper-V as the provider; choose the provider when creating the machine. Podman Desktop/WSL2 on Windows and rootless Podman on Linux have both been manually verified for this image; neither is part of CI.
+
+Two flag differences from Docker are handled for you by the launcher scripts and do not need manual workarounds:
+
+- The `Dockerfile`'s base images are fully qualified (`docker.io/library/...`) because a stock Podman install has no default unqualified-search-registry, unlike Docker's implicit Docker Hub default.
+- `docker/rumble.sh` and `docker/rumble.ps1` add `--userns=keep-id` only when the selected engine is Podman, so the bind-mounted `.rumble-client` state directory stays writable and correctly owned by the invoking host user. Rootless Podman's `--user` does not map to the host UID inside the container's user namespace the way Docker's does; without `--userns=keep-id` the state directory is unwritable.
 
 Build the image with one of these commands:
 
