@@ -2,7 +2,7 @@
 
 FROM docker.io/library/eclipse-temurin:11-jdk AS jdk11
 
-FROM docker.io/library/gradle:8.14.3-jdk17 AS build
+FROM docker.io/library/gradle:9.7.1-jdk17 AS build
 ARG TANK_ROYALE_COMMIT
 WORKDIR /workspace
 COPY --from=jdk11 /opt/java/openjdk /opt/java/openjdk-11
