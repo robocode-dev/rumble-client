@@ -1,0 +1,8 @@
+version: 2
+events:
+    - {id: C-001, kind: numeric, state: live, prefix: C, component: "1"}
+    - {id: VIS-001, kind: numeric, state: live, prefix: VIS, component: "1"}
+    - {id: CH-001, kind: numeric, state: reserved, prefix: CH, component: "1"}
+    - {id: G-001, kind: numeric, state: reserved, prefix: G, component: "1"}
+    - {id: CAP-001, kind: numeric, state: reserved, prefix: CAP, component: "1"}
+    - {id: ADR-001, kind: numeric, state: reserved, prefix: ADR, component: "1"}
