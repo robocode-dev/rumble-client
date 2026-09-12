@@ -11,7 +11,7 @@ For the complete newcomer-friendly walkthrough, including registration and token
 Docker is the recommended way to build and run the client: it supplies the complete Java, .NET, Python, and Node.js environment every ranked bot needs, and is the isolation boundary for running reviewed-but-untrusted bot code. Docker Engine or Docker Desktop is required for this path.
 
 1. Clone this repository.
-2. Build the image: `docker build --tag rumble-client:dev .`
+2. Get the image: pull a released version and tag it locally — `docker pull ghcr.io/robocode-dev/rumble-client:latest && docker tag ghcr.io/robocode-dev/rumble-client:latest rumble-client:dev` — or build it yourself with `docker build --tag rumble-client:dev .`
 3. Copy `rumble-client.example.json` to `rumble-client.json` and edit it — see [Configuration](#configuration) below. Never commit the resulting file.
 4. Check your settings: `docker/rumble.sh validate rumble-client.json`
 5. Check the bundled runtimes: `docker/rumble.sh runtimes`
@@ -59,9 +59,15 @@ Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires 
 
 Use one game type per configuration with the current command-line client. `--run` executes one battle using the first configured game type in contract-name order. `myBots` may list the names of active bots or teams owned by you, without version numbers; under-sampled matchups involving those entries receive priority. `battlesPerSession` is validated for the session contract, but the current one-battle command does not consume it.
 
-## Docker and Podman development image
+## Docker and Podman container image
 
-The non-published development image can be built and run with Docker Engine, Docker Desktop, or Podman. The examples below use Docker; replace `docker` with `podman` when invoking the image directly. On Windows, Podman Desktop needs a running Linux virtual machine and can use WSL2 or Hyper-V as the provider; choose the provider when creating the machine. Podman Desktop/WSL2 on Windows and rootless Podman on Linux have both been manually verified for this image; neither is part of CI.
+Released versions are published to `ghcr.io/robocode-dev/rumble-client`; pull one instead of building it yourself:
+
+```shell
+docker pull ghcr.io/robocode-dev/rumble-client:latest
+```
+
+Substitute a specific version, e.g. `ghcr.io/robocode-dev/rumble-client:0.2.0`, to pin to a release; see [`CHANGELOG.md`](CHANGELOG.md) for what changed in each one. The image can also be built and run locally with Docker Engine, Docker Desktop, or Podman. The examples below use Docker; replace `docker` with `podman` when invoking the image directly. On Windows, Podman Desktop needs a running Linux virtual machine and can use WSL2 or Hyper-V as the provider; choose the provider when creating the machine. Podman Desktop/WSL2 on Windows and rootless Podman on Linux have both been manually verified for this image; neither is part of CI.
 
 Two flag differences from Docker are handled for you by the launcher scripts and do not need manual workarounds:
 

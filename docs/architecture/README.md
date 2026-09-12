@@ -9,6 +9,7 @@ The Rumble Client is a Java 17 command-line application packaged and run through
 - The Battle Runner executes the selected bots and produces battle and replay output; it is consumed as a Gradle dependency and is built from a local Tank Royale checkout while its pinned version is unreleased.
 - GitHub Issues provide the result inbox and receipt comments used by submission reconciliation.
 - Docker or Podman supplies the isolated multi-runtime environment for reviewed bot code; the host launcher scripts enforce read-only mounts, dropped capabilities, and resource limits.
+- GHCR (`ghcr.io/robocode-dev/rumble-client`) distributes the built image on tagged releases, so contributors need not build it themselves.
 
 ## Components
 
@@ -36,7 +37,7 @@ flowchart LR
   Submit --> Issues[GitHub Issues result inbox]
 ```
 
-Architecture documents describe the system's shape, not individual feature details. Durable choices include Java 17, Gradle, Gson for JSON contracts, the Tank Royale Battle Runner dependency, and Docker/Podman isolation for runtime execution.
+Architecture documents describe the system's shape, not individual feature details. Durable choices include Java 17, Gradle, Gson for JSON contracts, the Tank Royale Battle Runner dependency, Docker/Podman isolation for runtime execution, and GHCR as the published-image distribution point (see [ADR-001](../decisions/ADR-001-ghcr-image-publishing-on-tag.md)).
 
 <!-- clue:index:start -->
 <!-- clue:index:end -->
