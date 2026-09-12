@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1
 
-FROM eclipse-temurin:11-jdk AS jdk11
+FROM docker.io/library/eclipse-temurin:11-jdk AS jdk11
 
-FROM gradle:8.14.3-jdk17 AS build
+FROM docker.io/library/gradle:8.14.3-jdk17 AS build
 ARG TANK_ROYALE_COMMIT
 WORKDIR /workspace
 COPY --from=jdk11 /opt/java/openjdk /opt/java/openjdk-11
@@ -16,7 +16,7 @@ RUN test -n "$TANK_ROYALE_COMMIT" \
         -Dorg.gradle.java.installations.paths=/opt/java/openjdk,/opt/java/openjdk-11 \
         -PtankRoyaleSource=/tank-royale installDist
 
-FROM python:3.14-slim AS python-api
+FROM docker.io/library/python:3.14-slim AS python-api
 COPY --from=build /tank-royale/VERSION /tank-royale/VERSION
 COPY --from=build /tank-royale/schema/schemas /tank-royale/schema/schemas
 COPY --from=build /tank-royale/bot-api/python /tank-royale/bot-api/python
@@ -28,7 +28,7 @@ RUN python -m pip install --no-cache-dir --upgrade pip build PyYAML \
         -o generated/robocode_tank_royale/schema \
     && python -m build --wheel --outdir /out
 
-FROM ubuntu:26.04
+FROM docker.io/library/ubuntu:26.04
 ARG TARGETARCH
 COPY src/main/resources/runtime-versions.properties /tmp/runtime-versions.properties
 COPY --from=python-api /out/robocode_tank_royale-*.whl /tmp/

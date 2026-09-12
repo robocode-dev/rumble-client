@@ -16,6 +16,16 @@ case "${container_engine}" in
     *) usage ;;
 esac
 
+# Rootless Podman's --user does not map to the invoking host UID inside the
+# container's user namespace (it resolves through the subuid map instead), so
+# a bind-mounted state directory owned by the host user is otherwise
+# unwritable. --userns=keep-id closes that gap; Docker has no such flag and
+# does not need one, since its --user maps directly.
+userns_args=""
+if [ "${container_engine}" = "podman" ]; then
+    userns_args="--userns=keep-id"
+fi
+
 case "${command_name}" in
     validate) client_arguments="--validate-config /work/rumble-client.json" ;;
     runtimes) client_arguments="--check-runtimes" ;;
@@ -29,7 +39,7 @@ esac
 
 if [ "${command_name}" = "runtimes" ]; then
     exec "${container_engine}" run --rm --read-only --network none --tmpfs /tmp:rw,nosuid,nodev,size=1g \
-        --user "$(id -u):$(id -g)" \
+        --user "$(id -u):$(id -g)" ${userns_args} \
         --cpus 4 --memory 8g --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges \
         "${image}" --check-runtimes
 fi
@@ -47,7 +57,7 @@ if [ "${command_name}" = "submit" ]; then
 fi
 
 exec "${container_engine}" run --rm --read-only --tmpfs /tmp:rw,nosuid,nodev,size=1g \
-    --user "$(id -u):$(id -g)" \
+    --user "$(id -u):$(id -g)" ${userns_args} \
     --cpus 4 --memory 8g --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges \
     --mount "type=bind,source=${absolute_config},target=/work/rumble-client.json,readonly" \
     --mount "type=bind,source=${state_directory},target=/work/.rumble-client" \

@@ -40,6 +40,14 @@ if ($IsLinux -or $IsMacOS) {
     $userId = (& id -u).Trim()
     $groupId = (& id -g).Trim()
     $containerArguments += @('--user', "${userId}:${groupId}")
+    # Rootless Podman's --user does not map to the invoking host UID inside the
+    # container's user namespace (it resolves through the subuid map instead), so
+    # a bind-mounted state directory owned by the host user is otherwise
+    # unwritable. --userns=keep-id closes that gap; Docker has no such flag and
+    # does not need one, since its --user maps directly.
+    if ($Engine -eq 'podman') {
+        $containerArguments += @('--userns=keep-id')
+    }
 }
 if ($Command -eq 'runtimes') {
     $containerArguments += @('--network', 'none')
