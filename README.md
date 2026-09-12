@@ -64,6 +64,8 @@ Two flag differences from Docker are handled for you by the launcher scripts and
 - The `Dockerfile`'s base images are fully qualified (`docker.io/library/...`) because a stock Podman install has no default unqualified-search-registry, unlike Docker's implicit Docker Hub default.
 - `docker/rumble.sh` and `docker/rumble.ps1` add `--userns=keep-id` only when the selected engine is Podman, so the bind-mounted `.rumble-client` state directory stays writable and correctly owned by the invoking host user. Rootless Podman's `--user` does not map to the host UID inside the container's user namespace the way Docker's does; without `--userns=keep-id` the state directory is unwritable.
 
+One flag difference is not handled by the scripts and needs a one-time host setting instead: the launchers pass `--cpus`, `--memory`, and `--pids-limit` unconditionally, and rootless Podman honors them only when the `cpu`, `memory`, and `pids` cgroup controllers are delegated to your user session (`cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers` lists them if so). Recent systemd (245+) delegates all three by default on most current Linux distributions, including the Ubuntu install these launchers were verified against, so this is normally a non-issue; if a run fails with a cgroup- or resource-limit-related error instead of an application error, delegation is the first thing to check.
+
 Build the image with one of these commands:
 
 ```shell
