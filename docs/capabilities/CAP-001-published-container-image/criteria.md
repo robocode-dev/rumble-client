@@ -1,5 +1,5 @@
 ---
-id: CAP-001-criteria
+id: CAP-002
 type: criteria
 status: draft
 links: [CAP-001]
@@ -8,6 +8,7 @@ title: Acceptance criteria for the published container image
 
 # Acceptance criteria — CAP-001 Published container image
 
+```gherkin
 @AC-001
 Scenario: Tagging a release publishes a pullable versioned image
   Test-type: Human
@@ -29,3 +30,4 @@ Scenario: Every published version has a changelog entry
   Given a version tag "vX.Y.Z" has been pushed
   When a contributor reads CHANGELOG.md
   Then it contains a "## [X.Y.Z]" section describing what changed since the previous version
+```

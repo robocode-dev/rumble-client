@@ -1,6 +1,7 @@
 ---
-id: CAP-001-design
+id: CAP-003
 type: design
+status: draft
 links: [CAP-001]
 title: How the published container image works
 ---

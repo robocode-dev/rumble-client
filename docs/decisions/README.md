@@ -21,4 +21,5 @@ Decision records are timeless: state what is decided and only the enduring conte
 A decision that changes a methodology contract inventories every live carrier that states the affected contract and updates that complete inventory in the same change. Live carriers include current corpus truth, canonical and generated skills, templates, public or contributor guidance, implementation explanations, CLI text, and distribution metadata. Historical analyses, completed plans, and changelog entries remain pinned history. Focused guards hold stable repaired claims, but no current mechanism derives an arbitrary contract's complete carrier set, so the general obligation remains agent-enforced.
 
 <!-- clue:index:start -->
+- [ADR-001 — Publish the container image to GHCR, triggered only by version tags](ADR-001-ghcr-image-publishing-on-tag.md) · `inferred` — The container image (CAP-001) is published to GitHub Container Registry (`ghcr.io/robocode-dev/rumble-client`) rather than Docker Hub or another registry, because it authenticates with the workflow's…
 <!-- clue:index:end -->

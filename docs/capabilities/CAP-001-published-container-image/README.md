@@ -5,6 +5,7 @@ status: draft
 provenance: inferred
 reversal-cost: low
 links: [G-001]
+goal: G-001
 title: Published container image
 ---
 
