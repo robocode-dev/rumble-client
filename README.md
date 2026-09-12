@@ -1,8 +1,10 @@
 # Tank Royale Rumble Client
 
-The Rumble Client runs local Tank Royale battles against the published Rumble catalog. Ranked mode validates the current engine and catalog pin, journals every completed result with replay evidence, and submits batches through the Rumble data repository's issue inbox. Practice mode never creates a ranked record or submission.
+The Rumble Client lets your computer contribute ranked battles to the Tank Royale Rumble. It downloads the reviewed bot catalog, chooses an under-sampled matchup, runs the battle locally, keeps replay evidence, and submits the result through the Rumble data repository.
 
 This project is part of the [Tank Royale](https://github.com/robocode-dev/tank-royale) ecosystem; the client's public contracts (configuration, journal, and submission format) are documented there.
+
+For the complete newcomer-friendly walkthrough, including registration and token setup, read [Run ranked Rumble battles](https://robocode.dev/rumble/client-guide). This README is the technical reference for the source checkout.
 
 ## Quickstart (Docker, recommended)
 
@@ -25,23 +27,23 @@ The client tracks posted batches locally and only drops them once their receipt 
 
 ## Building `rumble-client` itself
 
-Most contributors only need the Quickstart above. If you're changing this repository's own Java code, you need to build and test it, which still needs Gradle — but not installed on your machine. Run it inside a Gradle image matching this repository's pinned wrapper version (`gradle/wrapper/gradle-wrapper.properties`, currently 9.6.1), with your checkout bind-mounted:
+Most contributors only need the Quickstart above. If you're changing this repository's own Java code, you need to build and test it, which still needs Gradle — but not installed on your machine. Run it inside a Gradle image matching this repository's pinned wrapper version (`gradle/wrapper/gradle-wrapper.properties`, currently 9.7.1), with your checkout bind-mounted:
 
 ```shell
-docker run --rm -it -v "${PWD}:/workspace" -w /workspace gradle:9.6.1-jdk17 gradle build
+docker run --rm -it -v "${PWD}:/workspace" -w /workspace gradle:9.7.1-jdk17 gradle build
 ```
 
-The same command works unchanged on PowerShell. Note this is a different Gradle version than the `gradle:8.14.3-jdk17` image the `Dockerfile`'s own build stage starts from — that stage still runs `./gradlew` inside it precisely so the wrapper's pinned 9.6.1 is what actually builds the release, regardless of the base image's bundled version. Keep the two in sync if either changes.
+The same command works unchanged on PowerShell. The Dockerfile's build stage uses the same Gradle 9.7.1 image, and its wrapper invocation keeps the build reproducible. Keep the image and wrapper versions in sync if either changes.
 
 This repository currently depends on an unreleased Tank Royale Battle Runner version, built from a local Tank Royale checkout rather than a published Maven artifact — that's why CI and the `Dockerfile`'s own build stage pass `-PtankRoyaleSource=<path>`. To build against a local Tank Royale checkout the same way, mount it alongside your `rumble-client` checkout and add that property:
 
 ```shell
-docker run --rm -it -v "${PWD}:/workspace" -v "${PWD}/../tank-royale:/tank-royale" -w /workspace gradle:9.6.1-jdk17 gradle -PtankRoyaleSource=/tank-royale build
+docker run --rm -it -v "${PWD}:/workspace" -v "${PWD}/../tank-royale:/tank-royale" -w /workspace gradle:9.7.1-jdk17 gradle -PtankRoyaleSource=/tank-royale build
 ```
 
 This dependency becomes an ordinary published Maven Central artifact once Tank Royale releases the Battle Runner version this repository pins in `gradle.properties` — at that point this source-mount step stops being necessary.
 
-If you already have JDK 17 and Gradle installed on your machine, the equivalent host commands work identically: `./gradlew build`, or `./gradlew -PtankRoyaleSource=../tank-royale build`.
+If you already have JDK 17 and Gradle installed on your machine, the equivalent host command is `./gradlew --no-configuration-cache -PtankRoyaleSource=../tank-royale clean build`.
 
 The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required native installations; the check never installs or changes them.
 
@@ -54,6 +56,8 @@ The client validates configuration and can synchronize the current ranked input 
 ## Configuration
 
 Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires a registered `clientId` — see [`rumble-data`'s contributing guide](https://github.com/robocode-dev/rumble-data/blob/main/CONTRIBUTING.md) for the one-time registration pull request; practice mode may omit it. The optional `workDirectory` selects the local cache, journal, and replay-evidence root and defaults to `.rumble-client` beside the configuration file. Do not commit the resulting file or any token.
+
+Use one game type per configuration with the current command-line client. `--run` executes one battle using the first configured game type in contract-name order. `myBots` may list the names of active bots or teams owned by you, without version numbers; under-sampled matchups involving those entries receive priority. `battlesPerSession` is validated for the session contract, but the current one-battle command does not consume it.
 
 ## Docker and Podman development image
 
