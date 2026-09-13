@@ -22,4 +22,5 @@ A decision that changes a methodology contract inventories every live carrier th
 
 <!-- clue:index:start -->
 - [ADR-001 — Publish the container image to GHCR, triggered only by version tags](ADR-001-ghcr-image-publishing-on-tag.md) · `inferred` — The container image (CAP-001) is published to GitHub Container Registry (`ghcr.io/robocode-dev/rumble-client`) rather than Docker Hub or another registry, because it authenticates with the workflow's…
+- [ADR-002 — CI builds and tests the native client on Linux only](ADR-002-ci-native-build-linux-only.md) · `inferred` — The `build` job in `.github/workflows/build.yml` builds and tests the native client on `ubuntu-latest` only, not on Windows or macOS.
 <!-- clue:index:end -->

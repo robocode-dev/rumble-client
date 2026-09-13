@@ -65,7 +65,7 @@ Without `-PtankRoyaleSource`, `gradle build` runs the unit and contract tests an
 
 If you already have JDK 17 and Gradle installed on your machine, the equivalent host command is `./gradlew --no-configuration-cache clean build`.
 
-The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required native installations; the check never installs or changes them.
+The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required native installations; the check never installs or changes them. CI builds and tests the native client on Linux only, so running it natively on Windows or macOS works but is not CI-tested; the container image is the tested path on every host OS.
 
 <!-- runtime-versions:start -->
 The container and native preflight currently target Java 25, .NET 10, Python 3.14, and Node.js 24 (Node.js installer 24.21.0). This block is refreshed by the scheduled runtime update workflow.

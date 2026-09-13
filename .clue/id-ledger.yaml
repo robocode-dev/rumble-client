@@ -20,3 +20,9 @@ events:
     - {id: CH-002, kind: numeric, state: live, prefix: CH, component: "2"}
     - {id: TASK-001, kind: numeric, state: reserved, prefix: TASK, component: "1"}
     - {id: TASK-001, kind: numeric, state: live, prefix: TASK, component: "1"}
+    - {id: CH-003, kind: numeric, state: reserved, prefix: CH, component: "3"}
+    - {id: ADR-002, kind: numeric, state: reserved, prefix: ADR, component: "2"}
+    - {id: CH-003, kind: numeric, state: live, prefix: CH, component: "3"}
+    - {id: ADR-002, kind: numeric, state: live, prefix: ADR, component: "2"}
+    - {id: TASK-002, kind: numeric, state: reserved, prefix: TASK, component: "2"}
+    - {id: TASK-002, kind: numeric, state: live, prefix: TASK, component: "2"}
