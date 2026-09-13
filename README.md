@@ -35,15 +35,15 @@ docker run --rm -it -v "${PWD}:/workspace" -w /workspace gradle:9.7.1-jdk17 grad
 
 The same command works unchanged on PowerShell. The Dockerfile's build stage uses the same Gradle 9.7.1 image, and its wrapper invocation keeps the build reproducible. Keep the image and wrapper versions in sync if either changes.
 
-This repository currently depends on an unreleased Tank Royale Battle Runner version, built from a local Tank Royale checkout rather than a published Maven artifact — that's why CI and the `Dockerfile`'s own build stage pass `-PtankRoyaleSource=<path>`. To build against a local Tank Royale checkout the same way, mount it alongside your `rumble-client` checkout and add that property:
+The client uses the published Tank Royale Battle Runner 1.3.1 artifact from Maven Central, so an ordinary Java build needs no Tank Royale checkout. The Docker build still checks out the pinned Tank Royale source because it packages the matching Python API and schema and builds the sample bots used by the container smoke test. To run the full real-runner integration test locally, mount a checkout at the pinned commit alongside your `rumble-client` checkout and add this property:
 
 ```shell
 docker run --rm -it -v "${PWD}:/workspace" -v "${PWD}/../tank-royale:/tank-royale" -w /workspace gradle:9.7.1-jdk17 gradle -PtankRoyaleSource=/tank-royale build
 ```
 
-This dependency becomes an ordinary published Maven Central artifact once Tank Royale releases the Battle Runner version this repository pins in `gradle.properties` — at that point this source-mount step stops being necessary.
+Without `-PtankRoyaleSource`, `gradle build` runs the unit and contract tests and skips only the source-dependent real-runner integration test. CI and the container verification workflow provide the source checkout, so they run that integration coverage as well.
 
-If you already have JDK 17 and Gradle installed on your machine, the equivalent host command is `./gradlew --no-configuration-cache -PtankRoyaleSource=../tank-royale clean build`.
+If you already have JDK 17 and Gradle installed on your machine, the equivalent host command is `./gradlew --no-configuration-cache clean build`.
 
 The build produces native ZIP and TAR archives under `build/distributions/`. Run `./gradlew run --args="--check-runtimes"` to verify the required native installations; the check never installs or changes them.
 

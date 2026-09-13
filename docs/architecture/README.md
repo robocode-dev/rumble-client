@@ -6,7 +6,7 @@ The Rumble Client is a Java 17 command-line application packaged and run through
 
 - Contributors provide a JSON configuration, local state storage, and an optional GitHub token for result submission.
 - The Tank Royale data repository supplies the canonical client configuration, engine pin, ranked catalog, matchmaking advice, and bot source archives.
-- The Battle Runner executes the selected bots and produces battle and replay output; it is consumed as a Gradle dependency and is built from a local Tank Royale checkout while its pinned version is unreleased.
+- The Battle Runner executes the selected bots and produces battle and replay output; the client consumes its published 1.3.1 Maven artifact. Container builds also check out the pinned Tank Royale source to package the matching Python API and schema and to build sample bots for smoke verification.
 - GitHub Issues provide the result inbox and receipt comments used by submission reconciliation.
 - Docker or Podman supplies the isolated multi-runtime environment for reviewed bot code; the host launcher scripts enforce read-only mounts, dropped capabilities, and resource limits.
 - GHCR (`ghcr.io/robocode-dev/rumble-client`) distributes the built image on tagged releases, so contributors need not build it themselves.

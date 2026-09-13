@@ -31,7 +31,13 @@ application {
 
 tasks.test {
     useJUnitPlatform()
-    val tankRoyaleSource = providers.gradleProperty("tankRoyaleSource").orElse("../tank-royale").get()
-    dependsOn(gradle.includedBuild("tank-royale").task(":sample-bots:java:build"))
-    systemProperty("tankRoyaleSampleBotsJava", file(tankRoyaleSource).resolve("sample-bots/java/build/archive"))
+    val tankRoyaleSource = providers.gradleProperty("tankRoyaleSource").orNull
+    if (tankRoyaleSource == null) {
+        // The real-runner integration test needs sample bots from a source checkout.
+        // Keep the published Maven dependency usable for ordinary local builds.
+        exclude("**/RunnerBattleExecutorIntegrationTest.class")
+    } else {
+        dependsOn(gradle.includedBuild("tank-royale").task(":sample-bots:java:build"))
+        systemProperty("tankRoyaleSampleBotsJava", file(tankRoyaleSource).resolve("sample-bots/java/build/archive"))
+    }
 }
