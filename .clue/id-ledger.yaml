@@ -16,3 +16,7 @@ events:
     - {id: CAP-003, kind: numeric, state: reserved, prefix: CAP, component: "3"}
     - {id: CAP-002, kind: numeric, state: live, prefix: CAP, component: "2"}
     - {id: CAP-003, kind: numeric, state: live, prefix: CAP, component: "3"}
+    - {id: CH-002, kind: numeric, state: reserved, prefix: CH, component: "2"}
+    - {id: CH-002, kind: numeric, state: live, prefix: CH, component: "2"}
+    - {id: TASK-001, kind: numeric, state: reserved, prefix: TASK, component: "1"}
+    - {id: TASK-001, kind: numeric, state: live, prefix: TASK, component: "1"}
