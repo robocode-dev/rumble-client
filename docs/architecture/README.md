@@ -37,7 +37,7 @@ flowchart LR
   Submit --> Issues[GitHub Issues result inbox]
 ```
 
-Architecture documents describe the system's shape, not individual feature details. Durable choices include Java 17, Gradle, Gson for JSON contracts, the Tank Royale Battle Runner dependency, Docker/Podman isolation for runtime execution, and GHCR as the published-image distribution point (see [ADR-001](../decisions/ADR-001-ghcr-image-publishing-on-tag.md)).
+Architecture documents describe the system's shape, not individual feature details. Durable choices include Java 17, Gradle, Gson for JSON contracts, the Tank Royale Battle Runner dependency, Docker/Podman isolation for runtime execution, GHCR as the published-image distribution point (see [ADR-001](../decisions/ADR-001-ghcr-image-publishing-on-tag.md)), and CI verification of the native build on Linux only (see [ADR-002](../decisions/ADR-002-ci-native-build-linux-only.md)).
 
 <!-- clue:index:start -->
 <!-- clue:index:end -->
