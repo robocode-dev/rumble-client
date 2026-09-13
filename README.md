@@ -37,8 +37,9 @@ Build the image locally:
 
 ```shell
 docker build --tag rumble-client:dev .
-podman build --tag rumble-client:dev .
 ```
+
+With Podman, run `podman build --tag rumble-client:dev .` instead.
 
 The launchers default to the published image, so pass the local name as their image argument to run your build, for example `docker/rumble.sh runtimes rumble-client.json rumble-client:dev` or `docker/rumble.ps1 runtimes rumble-client.json rumble-client:dev`.
 
@@ -84,8 +85,9 @@ Released versions are published to [`ghcr.io/robocode-dev/rumble-client`](https:
 
 ```shell
 docker pull ghcr.io/robocode-dev/rumble-client:latest
-podman pull ghcr.io/robocode-dev/rumble-client:latest
 ```
+
+With Podman, run `podman pull ghcr.io/robocode-dev/rumble-client:latest` instead.
 
 Substitute a specific version, e.g. `ghcr.io/robocode-dev/rumble-client:0.1.0`, to pin to a release; see [`CHANGELOG.md`](CHANGELOG.md) for what changed in each one. The launchers default to `ghcr.io/robocode-dev/rumble-client:latest`; pass another image name as their image argument to use a pinned version or a locally built image. The image runs with Docker Engine, Docker Desktop, or Podman. To build the image yourself instead, see [Building the container image](#building-the-container-image). The examples below use Docker; replace `docker` with `podman` when invoking the image directly. On Windows, Podman Desktop needs a running Linux virtual machine and can use WSL2 or Hyper-V as the provider; choose the provider when creating the machine. Podman Desktop/WSL2 on Windows and rootless Podman on Linux have both been manually verified for this image; neither is part of CI.
 
