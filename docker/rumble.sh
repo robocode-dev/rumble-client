@@ -8,7 +8,7 @@ usage() {
 
 command_name="${1:-}"
 config_path="${2:-rumble-client.json}"
-image="${3:-rumble-client:dev}"
+image="${3:-ghcr.io/robocode-dev/rumble-client:latest}"
 container_engine="${CONTAINER_ENGINE:-docker}"
 
 case "${container_engine}" in

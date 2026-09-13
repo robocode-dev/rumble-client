@@ -7,7 +7,7 @@ param(
     [string] $Configuration = 'rumble-client.json',
 
     [Parameter(Position = 2)]
-    [string] $Image = 'rumble-client:dev',
+    [string] $Image = 'ghcr.io/robocode-dev/rumble-client:latest',
 
     [Parameter(Position = 3)]
     [ValidateSet('docker', 'podman')]

@@ -30,4 +30,12 @@ Scenario: Every published version has a changelog entry
   Given a version tag "vX.Y.Z" has been pushed
   When a contributor reads CHANGELOG.md
   Then it contains a "## [X.Y.Z]" section describing what changed since the previous version
+
+@AC-004
+Scenario: The launchers run the published image unless told otherwise
+  Test-type: Human
+  Given a contributor has not built or tagged any image locally
+  When they run "docker/rumble.sh runtimes" or "docker/rumble.ps1 runtimes" without an image argument
+  Then the launcher runs ghcr.io/robocode-dev/rumble-client:latest, pulling it if it is not present
+  And passing an explicit image argument, such as a locally built "rumble-client:dev", runs that image instead
 ```
