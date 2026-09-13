@@ -8,10 +8,10 @@ For the complete newcomer-friendly walkthrough, including registration and token
 
 ## Quickstart (Docker, recommended)
 
-Docker is the recommended way to build and run the client: it supplies the complete Java, .NET, Python, and Node.js environment every ranked bot needs, and is the isolation boundary for running reviewed-but-untrusted bot code. Docker Engine or Docker Desktop is required for this path.
+Docker is the recommended way to run the client: it supplies the complete Java, .NET, Python, and Node.js environment every ranked bot needs, and is the isolation boundary for running reviewed-but-untrusted bot code. Docker Engine or Docker Desktop is required for this path. You do not need to build anything: the ready-made image is published at [`ghcr.io/robocode-dev/rumble-client`](https://github.com/robocode-dev/rumble-client/pkgs/container/rumble-client).
 
-1. Clone this repository.
-2. Get the image: pull a released version and tag it locally — `docker pull ghcr.io/robocode-dev/rumble-client:latest && docker tag ghcr.io/robocode-dev/rumble-client:latest rumble-client:dev` — or build it yourself with `docker build --tag rumble-client:dev .`
+1. Clone this repository. You only need it for the launcher scripts and the example configuration.
+2. Pull the published image: `docker pull ghcr.io/robocode-dev/rumble-client:latest`. The launchers use this image by default and pull it on first use, so this step only saves waiting later.
 3. Copy `rumble-client.example.json` to `rumble-client.json` and edit it — see [Configuration](#configuration) below. Never commit the resulting file.
 4. Check your settings: `docker/rumble.sh validate rumble-client.json`
 5. Check the bundled runtimes: `docker/rumble.sh runtimes`
@@ -21,13 +21,33 @@ Docker is the recommended way to build and run the client: it supplies the compl
 
 On PowerShell, use `docker/rumble.ps1 <validate|runtimes|sync|run|submit> [config-path] [image]` instead — for example `docker/rumble.ps1 run rumble-client.json`, and set `$env:RUMBLE_CLIENT_TOKEN` before `submit`.
 
+Run `docker pull` again to pick up a newer `latest`. To pin a release, pass a version tag as the image argument, for example `docker/rumble.sh run rumble-client.json ghcr.io/robocode-dev/rumble-client:0.1.0`; see [`CHANGELOG.md`](CHANGELOG.md) for what changed in each one. If you want to build the image yourself, see [Building `rumble-client` itself](#building-rumble-client-itself).
+
 Every command runs the container read-only, with capabilities dropped and resource limits applied. Only `runtimes` blocks network access outright; `validate`, `sync`, `run`, and `submit` use normal outbound network because synchronization and submission need it, and `run` re-synchronizes the ranked snapshot before executing a battle.
 
 The client tracks posted batches locally and only drops them once their receipt comment appears on the closed issue; retrying an already-accepted submission is acknowledged idempotently rather than double-submitted.
 
 ## Building `rumble-client` itself
 
-Most contributors only need the Quickstart above. If you're changing this repository's own Java code, you need to build and test it, which still needs Gradle — but not installed on your machine. Run it inside a Gradle image matching this repository's pinned wrapper version (`gradle/wrapper/gradle-wrapper.properties`, currently 9.7.1), with your checkout bind-mounted:
+Most people only need the Quickstart above and the published image. Build it yourself only if you are changing this repository or prefer not to use the published image.
+
+### Building the container image
+
+Build the image locally:
+
+```shell
+docker build --tag rumble-client:dev .
+```
+
+With Podman, run `podman build --tag rumble-client:dev .` instead.
+
+The launchers default to the published image, so pass the local name as their image argument to run your build, for example `docker/rumble.sh runtimes rumble-client.json rumble-client:dev` or `docker/rumble.ps1 runtimes rumble-client.json rumble-client:dev`.
+
+To run the four-language container smoke check locally, build the sample-bot archives and run `CONTAINER_ENGINE=podman TANK_ROYALE_SOURCE=../tank-royale bash scripts/verify-container.sh`; Docker is the default engine.
+
+### Building and testing the Java code
+
+If you're changing this repository's own Java code, you need to build and test it, which still needs Gradle — but not installed on your machine. Run it inside a Gradle image matching this repository's pinned wrapper version (`gradle/wrapper/gradle-wrapper.properties`, currently 9.7.1), with your checkout bind-mounted:
 
 ```shell
 docker run --rm -it -v "${PWD}:/workspace" -w /workspace gradle:9.7.1-jdk17 gradle build
@@ -51,7 +71,7 @@ The build produces native ZIP and TAR archives under `build/distributions/`. Run
 The container and native preflight currently target Java 25, .NET 10, Python 3.14, and Node.js 24 (Node.js installer 24.21.0). This block is refreshed by the scheduled runtime update workflow.
 <!-- runtime-versions:end -->
 
-The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Each game type declares how many bots one catalog entry expands to, so TwinDuel selects two team entries for its four pinned participants while `1v1` and melee select individual bots, and a selection never contains two entries that share a member bot. Run `./gradlew run --args="--run"` to execute one pinned ranked battle through Battle Runner and retain its replay evidence locally. Run `./gradlew run --args="--submit"` to post pending records through the `rumble-data` issue inbox. It reads `RUMBLE_CLIENT_TOKEN` only at runtime; use a GitHub fine-grained token limited to read and write Issues access for that repository. The client records posted batches locally and removes records only after their result-data receipt comments appear. See the Docker and Podman development image section below for the isolated multi-runtime container.
+The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Each game type declares how many bots one catalog entry expands to, so TwinDuel selects two team entries for its four pinned participants while `1v1` and melee select individual bots, and a selection never contains two entries that share a member bot. Run `./gradlew run --args="--run"` to execute one pinned ranked battle through Battle Runner and retain its replay evidence locally. Run `./gradlew run --args="--submit"` to post pending records through the `rumble-data` issue inbox. It reads `RUMBLE_CLIENT_TOKEN` only at runtime; use a GitHub fine-grained token limited to read and write Issues access for that repository. The client records posted batches locally and removes records only after their result-data receipt comments appear. See [Docker and Podman container image](#docker-and-podman-container-image) below for the isolated multi-runtime container.
 
 ## Configuration
 
@@ -61,13 +81,15 @@ Use one game type per configuration with the current command-line client. `--run
 
 ## Docker and Podman container image
 
-Released versions are published to `ghcr.io/robocode-dev/rumble-client`; pull one instead of building it yourself:
+Released versions are published to [`ghcr.io/robocode-dev/rumble-client`](https://github.com/robocode-dev/rumble-client/pkgs/container/rumble-client), and this is the default way to get the image:
 
 ```shell
 docker pull ghcr.io/robocode-dev/rumble-client:latest
 ```
 
-Substitute a specific version, e.g. `ghcr.io/robocode-dev/rumble-client:0.2.0`, to pin to a release; see [`CHANGELOG.md`](CHANGELOG.md) for what changed in each one. The image can also be built and run locally with Docker Engine, Docker Desktop, or Podman. The examples below use Docker; replace `docker` with `podman` when invoking the image directly. On Windows, Podman Desktop needs a running Linux virtual machine and can use WSL2 or Hyper-V as the provider; choose the provider when creating the machine. Podman Desktop/WSL2 on Windows and rootless Podman on Linux have both been manually verified for this image; neither is part of CI.
+With Podman, run `podman pull ghcr.io/robocode-dev/rumble-client:latest` instead.
+
+Substitute a specific version, e.g. `ghcr.io/robocode-dev/rumble-client:0.1.0`, to pin to a release; see [`CHANGELOG.md`](CHANGELOG.md) for what changed in each one. The launchers default to `ghcr.io/robocode-dev/rumble-client:latest`; pass another image name as their image argument to use a pinned version or a locally built image. The image runs with Docker Engine, Docker Desktop, or Podman. To build the image yourself instead, see [Building the container image](#building-the-container-image). The examples below use Docker; replace `docker` with `podman` when invoking the image directly. On Windows, Podman Desktop needs a running Linux virtual machine and can use WSL2 or Hyper-V as the provider; choose the provider when creating the machine. Podman Desktop/WSL2 on Windows and rootless Podman on Linux have both been manually verified for this image; neither is part of CI.
 
 Two flag differences from Docker are handled for you by the launcher scripts and do not need manual workarounds:
 
@@ -75,15 +97,6 @@ Two flag differences from Docker are handled for you by the launcher scripts and
 - `docker/rumble.sh` and `docker/rumble.ps1` add `--userns=keep-id` only when the selected engine is Podman, so the bind-mounted `.rumble-client` state directory stays writable and correctly owned by the invoking host user. Rootless Podman's `--user` does not map to the host UID inside the container's user namespace the way Docker's does; without `--userns=keep-id` the state directory is unwritable.
 
 One flag difference is not handled by the scripts and needs a one-time host setting instead: the launchers pass `--cpus`, `--memory`, and `--pids-limit` unconditionally, and rootless Podman honors them only when the `cpu`, `memory`, and `pids` cgroup controllers are delegated to your user session (`cat /sys/fs/cgroup/user.slice/user-$(id -u).slice/user@$(id -u).service/cgroup.controllers` lists them if so). Recent systemd (245+) delegates all three by default on most current Linux distributions, including the Ubuntu install these launchers were verified against, so this is normally a non-issue; if a run fails with a cgroup- or resource-limit-related error instead of an application error, delegation is the first thing to check.
-
-Build the image with one of these commands:
-
-```shell
-docker build --tag rumble-client:dev .
-podman build --tag rumble-client:dev .
-```
-
-To run the four-language container smoke check locally, build the sample-bot archives and run `CONTAINER_ENGINE=podman TANK_ROYALE_SOURCE=../tank-royale bash scripts/verify-container.sh`; Docker is the default engine.
 
 Use the launcher scripts for configuration validation, runtime checks, snapshot synchronization, ranked battles, and result submission. The shell launcher selects Docker by default and accepts `CONTAINER_ENGINE=podman`; the PowerShell launcher accepts `-Engine podman` or the same `CONTAINER_ENGINE` environment variable:
 
