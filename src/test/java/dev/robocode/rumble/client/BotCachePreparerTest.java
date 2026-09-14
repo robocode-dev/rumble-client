@@ -52,6 +52,26 @@ class BotCachePreparerTest {
 
     @Test
     @Tag("RCL-002")
+    void testRCL002_IntegrationPositive_publishesTeamMemberAliasForSiblingLookup() throws IOException {
+        final Path sourceRepository = createSourceRepository();
+        final Path team = sourceRepository.resolve("bots/java/AlphaTeam");
+        Files.createDirectories(team);
+        Files.writeString(team.resolve("AlphaTeam.json"), "{}\n");
+        final TestRepositoryReader repositories = new TestRepositoryReader(sourceRepository, SOURCE_COMMIT);
+        final ClientConfiguration configuration = configuration();
+
+        final PreparedBotCache cache = new BotCachePreparer(repositories).prepare(
+                teamSnapshot(SOURCE_HASH), configuration);
+
+        final Path aliasDirectory = configuration.workDirectory().resolve("cache/bots")
+                .resolve(SOURCE_COMMIT).resolve("bots/java/Alpha 1.0");
+        assertEquals("{}\n", Files.readString(aliasDirectory.resolve("Alpha 1.0.json")));
+        assertEquals("class Alpha {}\n", Files.readString(aliasDirectory.resolve("src/Alpha.java")));
+        assertTrue(cache.bots().keySet().stream().anyMatch(bot -> bot.displayName().equals("AlphaTeam 1.0")));
+    }
+
+    @Test
+    @Tag("RCL-002")
     void testRCL002_IntegrationNegative_rejectsHashMismatchWithoutPublishingPartialCache() throws IOException {
         final TestRepositoryReader repositories = new TestRepositoryReader(createSourceRepository(), SOURCE_COMMIT);
         final ClientConfiguration configuration = configuration();
@@ -82,9 +102,25 @@ class BotCachePreparerTest {
 
     private static RumbleSnapshot snapshot(final String sourceHash) {
         final CatalogBot bot = new CatalogBot("Alpha", "1.0", "JVM", "bots/java/Alpha", sourceHash);
+        return snapshotOf(bot);
+    }
+
+    private static RumbleSnapshot teamSnapshot(final String sourceHash) {
+        final CatalogBot member = new CatalogBot("Alpha", "1.0", "JVM", "bots/java/Alpha", sourceHash);
+        final CatalogBot team = new CatalogBot("AlphaTeam", "1.0", "JVM", "bots/java/AlphaTeam",
+                "sha256:f15c9a3321aceb6e2259d46ea052a8ddd5be6aab2c87166129bda70403eafa0a",
+                List.of(member.displayName()));
+        return snapshotOf(member, team);
+    }
+
+    private static RumbleSnapshot snapshotOf(final CatalogBot... bots) {
+        final Map<String, CatalogBot> activeBots = new java.util.LinkedHashMap<>();
+        for (final CatalogBot bot : bots) {
+            activeBots.put(bot.displayName(), bot);
+        }
         final BotCatalog catalog = new BotCatalog(
                 URI.create("https://raw.githubusercontent.com/example/rumble-bots/main/bots/index.json"),
-                SOURCE_COMMIT, Map.of(bot.displayName(), bot));
+                SOURCE_COMMIT, activeBots);
         return new RumbleSnapshot(URI.create("https://github.com/example/rumble-data"),
                 "dddddddddddddddddddddddddddddddddddddddd",
                 new EnginePin(1, "unreleased", "example", java.util.Optional.empty(), Map.of()), catalog,
