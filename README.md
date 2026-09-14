@@ -10,6 +10,15 @@ For the complete newcomer-friendly walkthrough, including registration and token
 
 Docker is the recommended way to run the client: it supplies the complete Java, .NET, Python, and Node.js environment every ranked bot needs, and is the isolation boundary for running reviewed-but-untrusted bot code. Docker Engine or Docker Desktop is required for this path. You do not need to build anything: the ready-made image is published at [`ghcr.io/robocode-dev/rumble-client`](https://github.com/robocode-dev/rumble-client/pkgs/container/rumble-client).
 
+### Choose the right workflow
+
+- To develop or debug an unsubmitted bot, use the [Tank Royale GUI battle setup](https://robocode.dev/articles/gui-battle-setup). Those are private practice battles and do not affect the Rumble rankings.
+- To submit a bot for ranked battles, follow the [Rumble bot-author guide](https://robocode.dev/rumble/bot-author-guide). The bot must be reviewed and present in the published catalog before the Rumble client can select it.
+- To contribute ranked battles with catalogued bots, use the published image and the launcher commands in the Quickstart below. Add active bot or team names to `myBots` if you want the client to prioritize useful matchups involving them.
+- To verify an image build itself, use [`scripts/verify-container.sh`](scripts/verify-container.sh). It runs the four-language sample-bot smoke test under the same hardened container settings used by CI; it is not a general command for running an arbitrary local bot folder.
+
+The Rumble client does not currently take a local bot path as input. Its normal `run` workflow synchronizes the reviewed catalog, prepares an immutable cache of the catalogued bot sources, and selects a valid matchup from that cache. `myBots` contains catalog names without version numbers; it is a scheduling preference, not a local source mount.
+
 1. Clone this repository. You only need it for the launcher scripts and the example configuration.
 2. Pull the published image: `docker pull ghcr.io/robocode-dev/rumble-client:latest`. The launchers use this image by default and pull it on first use, so this step only saves waiting later.
 3. Copy `rumble-client.example.json` to `rumble-client.json` and edit it — see [Configuration](#configuration) below. Never commit the resulting file.
@@ -36,14 +45,29 @@ Most people only need the Quickstart above and the published image. Build it you
 Build the image locally:
 
 ```shell
-docker build --tag rumble-client:dev .
+TANK_ROYALE_COMMIT="$(tr -d '[:space:]' < TANK_ROYALE_COMMIT)"
+docker build --tag rumble-client:dev --build-arg "TANK_ROYALE_COMMIT=${TANK_ROYALE_COMMIT}" .
 ```
 
-With Podman, run `podman build --tag rumble-client:dev .` instead.
+On PowerShell, use:
+
+```powershell
+$env:TANK_ROYALE_COMMIT = (Get-Content TANK_ROYALE_COMMIT -Raw).Trim()
+docker build --tag rumble-client:dev --build-arg "TANK_ROYALE_COMMIT=$env:TANK_ROYALE_COMMIT" .
+```
+
+With Podman, replace `docker` with `podman` in the corresponding command.
 
 The launchers default to the published image, so pass the local name as their image argument to run your build, for example `docker/rumble.sh runtimes rumble-client.json rumble-client:dev` or `docker/rumble.ps1 runtimes rumble-client.json rumble-client:dev`.
 
-To run the four-language container smoke check locally, build the sample-bot archives and run `CONTAINER_ENGINE=podman TANK_ROYALE_SOURCE=../tank-royale bash scripts/verify-container.sh`; Docker is the default engine.
+To run the four-language container smoke check locally, use WSL or Git Bash with a Tank Royale checkout beside this repository. The checkout must match the commit in [`TANK_ROYALE_COMMIT`](TANK_ROYALE_COMMIT):
+
+```shell
+./scripts/build-sample-bots.sh ../tank-royale
+TANK_ROYALE_SOURCE=../tank-royale ./scripts/verify-container.sh
+```
+
+The script builds a local `rumble-client:test` image, checks the bundled runtimes and non-root hardening, and runs one-round Java, Python, C#, and TypeScript battles with networking disabled. Set `CONTAINER_ENGINE=podman` before the second command to use Podman. This is image verification with sample bots, not the normal workflow for testing an unsubmitted bot.
 
 ### Building and testing the Java code
 
@@ -77,7 +101,7 @@ The client validates configuration and can synchronize the current ranked input 
 
 Copy `rumble-client.example.json` to `rumble-client.json`. Ranked mode requires a registered `clientId` — see [`rumble-data`'s contributing guide](https://github.com/robocode-dev/rumble-data/blob/main/CONTRIBUTING.md) for the one-time registration pull request; practice mode may omit it. The optional `workDirectory` selects the local cache, journal, and replay-evidence root and defaults to `.rumble-client` beside the configuration file. Do not commit the resulting file or any token.
 
-Use one game type per configuration with the current command-line client. `--run` executes one battle using the first configured game type in contract-name order. `myBots` may list the names of active bots or teams owned by you, without version numbers; under-sampled matchups involving those entries receive priority. `battlesPerSession` is validated for the session contract, but the current one-battle command does not consume it.
+Use one game type per configuration with the current command-line client. `--run` executes one battle using the first configured game type in contract-name order. `myBots` may list the names of active bots or teams owned by you, without version numbers; under-sampled matchups involving those entries receive priority. These names must refer to entries already available in the synchronized catalog; they do not identify local source directories. `battlesPerSession` is validated for the session contract, but the current one-battle command does not consume it.
 
 ## Docker and Podman container image
 
@@ -120,7 +144,7 @@ $env:RUMBLE_CLIENT_TOKEN = '<your token>'
 
 For `validate`, `sync`, `run`, and `submit`, the launcher mounts the configuration file and `.rumble-client` state directory. Keep the state directory writable; it contains the bot cache, journal, and replay evidence. The `runtimes` check uses no network, while `validate`, `sync`, and `run` require network access to synchronize the configured repositories and `submit` requires network access to the GitHub Issues API. Submission forwards `RUMBLE_CLIENT_TOKEN` from the environment and never writes it to disk.
 
-The image contains a pinned Tank Royale Python API and its runtime dependencies in an image-owned virtual environment; no host Python environment or package installation is required. When running bot archives directly through a containerized Battle Runner, mount the archive read-only for Java and Python. C# and TypeScript first-run dependency setup may need to write and change file permissions, so copy those archives into writable container storage such as `/tmp` before booting them. This is especially important for Windows bind mounts, where `chmod` can fail with `EPERM`.
+The image contains a pinned Tank Royale Python API and its runtime dependencies in an image-owned virtual environment; no host Python environment or package installation is required. The normal launcher workflow runs the immutable bot sources prepared from the reviewed catalog. For local bot development before submission, use the Tank Royale GUI rather than the Rumble client image. The lower-level containerized Battle Runner can boot bot roots directly for specialized harnesses: mount Java and Python archives read-only, but copy C# and TypeScript archives into writable container storage before booting them because dependency setup may write files and change permissions. This is especially important for Windows bind mounts, where `chmod` can fail with `EPERM`.
 
 If Podman Desktop on Windows reports `ssh-keygen` cannot be found, install or enable Windows OpenSSH and add the OpenSSH installation directory to the user `PATH`, then restart the terminal and Podman Desktop.
 

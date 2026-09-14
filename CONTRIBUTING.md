@@ -1,8 +1,9 @@
 # Contributing to the Rumble Client
 
-There are two different ways to contribute to the Rumble:
+There are three different ways to contribute to the Rumble:
 
 - To donate battle results, follow [Run ranked Rumble battles](https://robocode.dev/rumble/client-guide). You do not need to change this repository.
+- To develop or submit a bot, follow the [Rumble bot-author guide](https://robocode.dev/rumble/bot-author-guide). Test unsubmitted bots with the Tank Royale GUI; the published image documented in [README.md](README.md#choose-the-right-workflow) runs catalogued bots through the Rumble client.
 - To improve the client itself, open a focused pull request here.
 
 ## Develop the client
