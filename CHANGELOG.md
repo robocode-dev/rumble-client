@@ -6,6 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-09-15
+
+### Fixed
+
+- Team battles (twinduel) failed to boot with "Team member directory not found": bot cache preparation now publishes the sibling-named alias directory Tank Royale's booter expects for each team member.
+- Bumped the pinned Tank Royale commit, which also fixes team member scripts failing to launch from a directory name containing a space.
+
 ## [0.1.0] - 2026-09-13
 
 ### Changed
