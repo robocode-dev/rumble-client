@@ -1,7 +1,7 @@
 ---
 id: CAP-002
 type: criteria
-status: draft
+status: active
 links: [CAP-001]
 title: Acceptance criteria for the published container image
 ---

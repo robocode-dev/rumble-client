@@ -1,9 +1,7 @@
 ---
 id: CAP-001
 type: capability
-status: draft
-provenance: inferred
-reversal-cost: low
+status: active
 links: [G-001]
 goal: G-001
 title: Published container image
