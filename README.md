@@ -26,9 +26,9 @@ The Rumble client does not currently take a local bot path as input. Its normal 
 5. Check the bundled runtimes: `docker/rumble.sh runtimes`
 6. Resolve the ranked catalog and prepare the bot cache: `docker/rumble.sh sync rumble-client.json`
 7. Run one ranked battle: `docker/rumble.sh run rumble-client.json`
-8. Submit pending results: `export RUMBLE_CLIENT_TOKEN=<your token>` then `docker/rumble.sh submit rumble-client.json`
+8. Prepare pending results for posting: `docker/rumble.sh submit rumble-client.json`. It writes each batch to a plain text file under `.rumble-client/submissions` and prints the result form address. Open the address while signed in to GitHub, paste the whole file into the batch field, press Create, and run `submit` again later to collect the receipt. No token is needed.
 
-On PowerShell, use `docker/rumble.ps1 <validate|runtimes|sync|run|submit> [config-path] [image]` instead — for example `docker/rumble.ps1 run rumble-client.json`, and set `$env:RUMBLE_CLIENT_TOKEN` before `submit`.
+On PowerShell, use `docker/rumble.ps1 <validate|runtimes|sync|run|submit> [config-path] [image]` instead — for example `docker/rumble.ps1 run rumble-client.json`, and no token is needed for `submit`.
 
 Run `docker pull` again to pick up a newer `latest`. To pin a release, pass a version tag as the image argument, for example `docker/rumble.sh run rumble-client.json ghcr.io/robocode-dev/rumble-client:0.1.0`; see [`CHANGELOG.md`](CHANGELOG.md) for what changed in each one. If you want to build the image yourself, see [Building `rumble-client` itself](#building-rumble-client-itself).
 
@@ -128,7 +128,6 @@ Use the launcher scripts for configuration validation, runtime checks, snapshot 
 ./docker/rumble.sh runtimes
 CONTAINER_ENGINE=podman ./docker/rumble.sh runtimes
 ./docker/rumble.sh run rumble-client.json
-export RUMBLE_CLIENT_TOKEN=<your token>
 ./docker/rumble.sh submit rumble-client.json
 ```
 
@@ -138,11 +137,10 @@ export RUMBLE_CLIENT_TOKEN=<your token>
 $env:CONTAINER_ENGINE = 'podman'
 ./docker/rumble.ps1 runtimes
 ./docker/rumble.ps1 run rumble-client.json
-$env:RUMBLE_CLIENT_TOKEN = '<your token>'
 ./docker/rumble.ps1 submit rumble-client.json
 ```
 
-For `validate`, `sync`, `run`, and `submit`, the launcher mounts the configuration file and `.rumble-client` state directory. Keep the state directory writable; it contains the bot cache, journal, and replay evidence. The `runtimes` check uses no network, while `validate`, `sync`, and `run` require network access to synchronize the configured repositories and `submit` requires network access to the GitHub Issues API. Submission forwards `RUMBLE_CLIENT_TOKEN` from the environment and never writes it to disk.
+For `validate`, `sync`, `run`, and `submit`, the launcher mounts the configuration file and `.rumble-client` state directory. Keep the state directory writable; it contains the bot cache, journal, and replay evidence. The `runtimes` check uses no network, while `validate`, `sync`, and `run` require network access to synchronize the configured repositories and `submit` requires network access to read public result issues and their receipts. Submission needs no credential: you post each prepared batch yourself through the result form.
 
 The image contains a pinned Tank Royale Python API and its runtime dependencies in an image-owned virtual environment; no host Python environment or package installation is required. The normal launcher workflow runs the immutable bot sources prepared from the reviewed catalog. For local bot development before submission, use the Tank Royale GUI rather than the Rumble client image. The lower-level containerized Battle Runner can boot bot roots directly for specialized harnesses: mount Java and Python archives read-only, but copy C# and TypeScript archives into writable container storage before booting them because dependency setup may write files and change permissions. This is especially important for Windows bind mounts, where `chmod` can fail with `EPERM`.
 

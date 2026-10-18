@@ -96,9 +96,16 @@ public final class RumbleClient {
                 final RankedJournal journal = new RankedJournal(configuration.workDirectory());
                 final int quarantined = journal.quarantineObsolete(snapshot.engine().behaviorVersion()).size();
                 final SubmissionReport report = new IssueOpsSubmission(new GitHubIssueOpsTransport(
-                        System.getenv("RUMBLE_CLIENT_TOKEN")), Clock.systemUTC()).submit(journal, snapshot);
-                output.printf("Observed %d accepted result receipts and created %d Issues-only submission batches.%n",
-                        report.receipts().size(), report.submitted().size());
+                        System.getenv("RUMBLE_CLIENT_TOKEN")), Clock.systemUTC(),
+                        configuration.workDirectory().resolve("submissions")).submit(journal, snapshot);
+                output.printf("Observed %d accepted result receipts.%n", report.receipts().size());
+                for (final PreparedPost post : report.waiting()) {
+                    output.printf("Batch of %d results is ready to post.%n", post.batch().battleIds().size());
+                    output.printf("  1. Open this address while signed in to GitHub: %s%n", post.formAddress());
+                    output.printf("  2. Paste the whole content of %s into the batch field and press Create.%n",
+                            post.file());
+                    output.println("  3. Run --submit again later to collect the receipt.");
+                }
                 if (quarantined > 0) {
                     output.printf("Quarantined %d records from an obsolete behavior-version epoch.%n", quarantined);
                 }
@@ -132,7 +139,7 @@ public final class RumbleClient {
         output.println("Use --check-runtimes to verify native Java, .NET, Python, and Node.js prerequisites.");
         output.println("Use --sync to validate the current snapshot and prepare its immutable bot cache, in ranked or practice mode.");
         output.println("Use --run to execute one battle and retain its local replay evidence, in ranked or practice mode.");
-        output.println("Use --submit to send pending ranked records with the RUMBLE_CLIENT_TOKEN Issues-only credential; ranked mode only.");
+        output.println("Use --submit to prepare pending ranked records for the result form and collect receipts, with no credential; ranked mode only.");
     }
 
     private static void printRuntimeReport(final RuntimeReport report, final PrintStream output) {
