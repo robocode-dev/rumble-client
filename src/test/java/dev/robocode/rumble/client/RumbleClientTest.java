@@ -1,5 +1,6 @@
 package dev.robocode.rumble.client;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -44,6 +45,18 @@ class RumbleClientTest {
                 new RuntimeReport(List.of(RuntimeStatus.success("Java", version, "25.0.1"))));
 
         assertTrue(bytes.toString().contains("OK Java (required 25): 25.0.1"));
+    }
+
+    @Test
+    @Tag("Unit")
+    void testUnitPositive_validatesConfigurationWithoutStaleExecutionWarning() throws IOException {
+        final Path configurationPath = writePracticeConfiguration();
+        final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
+
+        RumbleClient.run(new String[] {"--validate-config", configurationPath.toString()}, new PrintStream(bytes));
+
+        assertTrue(bytes.toString().contains("is valid for practice mode"));
+        assertFalse(bytes.toString().contains("Battle execution is not available yet."));
     }
 
     @Test
