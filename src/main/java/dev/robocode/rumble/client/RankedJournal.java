@@ -30,6 +30,7 @@ final class RankedJournal {
     private static final String ACKNOWLEDGEMENTS_FILE = "acknowledgements.jsonl";
     private static final String QUARANTINE_FILE = "quarantine.jsonl";
     private static final String SUBMISSIONS_FILE = "submissions.jsonl";
+    private static final String PREPARED_FILE = "prepared.jsonl";
 
     private final Path directory;
 
@@ -55,7 +56,15 @@ final class RankedJournal {
     }
 
     void recordSubmission(final SubmittedBatch batch) throws IOException {
+        recordSubmission(batch, null);
+    }
+
+    /** Records a posted issue; the title of the prepared batch it answers keeps a rejected batch from hiding a new one. */
+    void recordSubmission(final SubmittedBatch batch, final String preparedTitle) throws IOException {
         final JsonObject entry = new JsonObject();
+        if (preparedTitle != null) {
+            entry.addProperty("title", preparedTitle);
+        }
         entry.addProperty("schemaVersion", SCHEMA_VERSION);
         entry.addProperty("issueNumber", batch.issueNumber());
         entry.addProperty("issueUrl", batch.issueUrl());
@@ -63,6 +72,37 @@ final class RankedJournal {
         batch.battleIds().forEach(battleId -> battleIds.add(battleId.toString()));
         entry.add("battleIds", battleIds);
         appendLine(SUBMISSIONS_FILE, entry);
+    }
+
+    void recordPrepared(final PreparedBatch batch) throws IOException {
+        final JsonObject entry = new JsonObject();
+        entry.addProperty("schemaVersion", SCHEMA_VERSION);
+        entry.addProperty("title", batch.title());
+        entry.addProperty("body", batch.body());
+        final JsonArray battleIds = new JsonArray();
+        batch.battleIds().forEach(battleId -> battleIds.add(battleId.toString()));
+        entry.add("battleIds", battleIds);
+        appendLine(PREPARED_FILE, entry);
+    }
+
+    Set<String> preparedTitles() throws IOException {
+        return entries(PREPARED_FILE).stream().map(entry -> requiredString(entry, "title", PREPARED_FILE))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    /** Prepared batches whose issue has not been found yet and which still hold pending results. */
+    List<PreparedBatch> unpostedPrepared() throws IOException {
+        final Set<UUID> pending = pending().stream().map(RankedBattleRecord::battleId)
+                .collect(java.util.stream.Collectors.toSet());
+        final Set<String> postedTitles = new LinkedHashSet<>();
+        for (final JsonObject entry : entries(SUBMISSIONS_FILE)) {
+            if (entry.has("title")) {
+                postedTitles.add(entry.get("title").getAsString());
+            }
+        }
+        return entries(PREPARED_FILE).stream().map(RankedJournal::preparedBatch)
+                .filter(batch -> !postedTitles.contains(batch.title()))
+                .filter(batch -> batch.battleIds().stream().anyMatch(pending::contains)).toList();
     }
 
     List<SubmittedBatch> unacknowledgedSubmissions() throws IOException {
@@ -219,6 +259,16 @@ final class RankedJournal {
                 requiredString(json, "replayHash", RECORDS_FILE));
     }
 
+    private static PreparedBatch preparedBatch(final JsonObject json) {
+        final List<UUID> battleIds = array(json, "battleIds", PREPARED_FILE).asList().stream()
+                .map(JsonElement::getAsString).map(UUID::fromString).toList();
+        if (battleIds.isEmpty() || new LinkedHashSet<>(battleIds).size() != battleIds.size()) {
+            throw new IllegalArgumentException("Ranked journal prepared.jsonl has invalid battleIds");
+        }
+        return new PreparedBatch(requiredString(json, "title", PREPARED_FILE),
+                requiredString(json, "body", PREPARED_FILE), battleIds);
+    }
+
     private static SubmittedBatch submittedBatch(final JsonObject json) {
         final int issueNumber = integer(json, "issueNumber", SUBMISSIONS_FILE);
         if (issueNumber < 1) {
@@ -300,6 +350,13 @@ record SubmissionReceipt(UUID battleId, String reference) {
 /** One locally recorded issue containing a batch awaiting result-data receipts. */
 record SubmittedBatch(int issueNumber, String issueUrl, List<UUID> battleIds) {
     SubmittedBatch {
+        battleIds = List.copyOf(battleIds);
+    }
+}
+
+/** One locally prepared batch the contributor posts through the result form, retained until its issue is found. */
+record PreparedBatch(String title, String body, List<UUID> battleIds) {
+    PreparedBatch {
         battleIds = List.copyOf(battleIds);
     }
 }

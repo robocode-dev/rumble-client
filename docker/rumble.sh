@@ -51,10 +51,6 @@ state_directory="${config_directory}/.rumble-client"
 mkdir -p "${state_directory}"
 
 env_args=""
-if [ "${command_name}" = "submit" ]; then
-    : "${RUMBLE_CLIENT_TOKEN:?RUMBLE_CLIENT_TOKEN must be set in the environment to submit results}"
-    env_args="--env RUMBLE_CLIENT_TOKEN"
-fi
 
 exec "${container_engine}" run --rm --read-only --tmpfs /tmp:rw,nosuid,nodev,size=1g \
     --user "$(id -u):$(id -g)" ${userns_args} \

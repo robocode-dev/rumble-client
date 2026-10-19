@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+### Changed
+
+- `submit` no longer posts result issues through the GitHub API and no longer needs a token. It writes each batch of results to a plain text file under `.rumble-client/submissions` (split by size as well as by the limit of sixty results) and prints the result form address; you paste the file into the form, press Create, and run `submit` again later to collect the receipt. Outside contributors could not create a repository-scoped token and the API dropped the submission label, so their issues were never processed.
+
 ## [0.2.0] - 2026-09-15
 
 ### Fixed

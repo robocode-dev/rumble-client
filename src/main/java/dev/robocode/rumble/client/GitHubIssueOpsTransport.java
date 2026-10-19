@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 
 import java.io.IOException;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
@@ -14,51 +15,80 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
+import java.util.regex.Pattern;
 
-/** GitHub REST adapter limited to creating result issues and reading their receipt comments. */
+/** GitHub REST adapter limited to finding result issues and reading their receipt comments. Needs no credential. */
 final class GitHubIssueOpsTransport implements IssueOpsTransport {
     private static final URI API_ROOT = URI.create("https://api.github.com/");
     private static final String API_VERSION = "2026-03-10";
 
+    private static final Pattern JSON_BLOCK = Pattern.compile("```json\\s*\\n(.*?)\\n```", Pattern.DOTALL);
+    private static final long INGESTION_BOT_ID = 41898282L;
+
     private final HttpClient client;
     private final String token;
+    private final URI apiRoot;
 
+    /** Reads public issues; an optional token only raises the anonymous request limit and is never required. */
     GitHubIssueOpsTransport(final String token) {
         this(HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(20)).build(), token);
     }
 
     GitHubIssueOpsTransport(final HttpClient client, final String token) {
-        if (token == null || token.isBlank()) {
-            throw new IllegalArgumentException("RUMBLE_CLIENT_TOKEN must contain an Issues-only GitHub token");
-        }
+        this(client, token, API_ROOT);
+    }
+
+    GitHubIssueOpsTransport(final HttpClient client, final String token, final URI apiRoot) {
         this.client = client;
-        this.token = token;
+        this.token = token == null || token.isBlank() ? null : token;
+        this.apiRoot = apiRoot;
     }
 
     @Override
-    public SubmittedBatch createIssue(final URI repository, final String body, final String title) throws IOException {
-        final JsonObject request = new JsonObject();
-        request.addProperty("title", title);
-        request.addProperty("body", body);
-        final JsonArray labels = new JsonArray();
-        labels.add("result-submission");
-        request.add("labels", labels);
-        final JsonObject response = request("POST", endpoint(repository, "issues"), request.toString());
-        final int issueNumber = response.get("number").getAsInt();
-        final String issueUrl = response.get("html_url").getAsString();
-        return new SubmittedBatch(issueNumber, issueUrl, battleIds(body));
+    public Optional<SubmittedBatch> findIssue(final URI repository, final PreparedBatch prepared, final String account)
+            throws IOException {
+        for (int page = 1; ; page++) {
+            final JsonArray issues = request("GET", endpoint(repository, "issues?state=all&sort=created&direction=desc"
+                    + "&creator=" + URLEncoder.encode(account, StandardCharsets.UTF_8)
+                    + "&per_page=100&page=" + page), null).getAsJsonArray("comments");
+            for (final JsonElement element : issues) {
+                final JsonObject issue = element.getAsJsonObject();
+                if (!issue.has("pull_request") && prepared.title().equals(issue.get("title").getAsString())
+                        && issue.has("user") && account.equalsIgnoreCase(issue.getAsJsonObject("user").get("login").getAsString())
+                        && sameEnvelope(issue.get("body"), prepared.body())) {
+                    return Optional.of(new SubmittedBatch(issue.get("number").getAsInt(),
+                            issue.get("html_url").getAsString(), prepared.battleIds()));
+                }
+            }
+            if (issues.size() < 100) {
+                break;
+            }
+        }
+        return Optional.empty();
     }
 
     @Override
     public SubmissionStatus status(final URI repository, final SubmittedBatch batch) throws IOException {
-        final JsonArray comments = request("GET", endpoint(repository, "issues/" + batch.issueNumber()
-                + "/comments?per_page=100"), null).getAsJsonArray("comments");
         final List<SubmissionReceipt> receipts = new ArrayList<>();
-        for (final JsonElement comment : comments) {
-            final JsonElement body = comment.getAsJsonObject().get("body");
-            if (body != null && body.isJsonPrimitive()) {
-                receipts.addAll(receipts(body.getAsString(), batch.issueUrl()));
+        for (int page = 1; ; page++) {
+            final JsonArray comments = request("GET", endpoint(repository, "issues/" + batch.issueNumber()
+                    + "/comments?per_page=100&page=" + page), null).getAsJsonArray("comments");
+            for (final JsonElement element : comments) {
+                final JsonObject comment = element.getAsJsonObject();
+                final JsonElement body = comment.get("body");
+                final JsonObject user = comment.getAsJsonObject("user");
+                // The ingestion workflow publishes these receipts only after pushing canonical facts.
+                if (user != null && user.has("id") && user.get("id").getAsLong() == INGESTION_BOT_ID
+                        && "github-actions[bot]".equals(user.get("login").getAsString())
+                        && "Bot".equals(user.get("type").getAsString())
+                        && body != null && body.isJsonPrimitive()) {
+                    receipts.addAll(receipts(body.getAsString(), batch.issueUrl()));
+                }
+            }
+            if (comments.size() < 100) {
+                break;
             }
         }
         final JsonObject issue = request("GET", endpoint(repository, "issues/" + batch.issueNumber()), null);
@@ -69,8 +99,10 @@ final class GitHubIssueOpsTransport implements IssueOpsTransport {
     private JsonObject request(final String method, final URI endpoint, final String body) throws IOException {
         final HttpRequest.Builder request = HttpRequest.newBuilder(endpoint).timeout(Duration.ofSeconds(30))
                 .header("Accept", "application/vnd.github+json")
-                .header("Authorization", "Bearer " + token)
                 .header("X-GitHub-Api-Version", API_VERSION);
+        if (token != null) {
+            request.header("Authorization", "Bearer " + token);
+        }
         if (body == null) {
             request.GET();
         } else {
@@ -97,25 +129,33 @@ final class GitHubIssueOpsTransport implements IssueOpsTransport {
         }
     }
 
-    private static URI endpoint(final URI repository, final String suffix) {
+    private URI endpoint(final URI repository, final String suffix) {
         if (!"github.com".equalsIgnoreCase(repository.getHost())) {
-            throw new IllegalArgumentException("Issues-only submission requires a github.com canonical repository");
+            throw new IllegalArgumentException("Reading submission receipts requires a github.com canonical repository");
         }
         final String[] segments = repository.getPath().replaceFirst("/$", "").replaceFirst("\\.git$", "")
                 .split("/");
         if (segments.length != 3 || segments[1].isBlank() || segments[2].isBlank()) {
             throw new IllegalArgumentException("Canonical repository must identify a GitHub owner and repository");
         }
-        return API_ROOT.resolve("repos/" + segments[1] + "/" + segments[2] + "/" + suffix);
+        return apiRoot.resolve("repos/" + segments[1] + "/" + segments[2] + "/" + suffix);
     }
 
-    private static List<UUID> battleIds(final String body) {
-        final int begin = body.indexOf('{');
-        final int end = body.lastIndexOf('}');
-        final JsonArray results = JsonParser.parseString(body.substring(begin, end + 1)).getAsJsonObject()
-                .getAsJsonArray("results");
-        return results.asList().stream().map(result -> UUID.fromString(result.getAsJsonObject()
-                .get("battleId").getAsString())).toList();
+    private static boolean sameEnvelope(final JsonElement body, final String preparedBody) {
+        if (body == null || body.isJsonNull() || !body.isJsonPrimitive()) {
+            return false;
+        }
+        try {
+            final var actual = JSON_BLOCK.matcher(body.getAsString());
+            final var expected = JSON_BLOCK.matcher(preparedBody);
+            if (!actual.find() || !expected.find()) {
+                return false;
+            }
+            final JsonElement envelope = JsonParser.parseString(actual.group(1));
+            return !actual.find() && JsonContract.sameValue(envelope, JsonParser.parseString(expected.group(1)));
+        } catch (RuntimeException exception) {
+            return false;
+        }
     }
 
     private static List<SubmissionReceipt> receipts(final String comment, final String issueUrl) {

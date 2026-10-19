@@ -4,7 +4,7 @@ The Rumble Client lets your computer contribute ranked battles to the Tank Royal
 
 This project is part of the [Tank Royale](https://github.com/robocode-dev/tank-royale) ecosystem; the client's public contracts (configuration, journal, and submission format) are documented there.
 
-For the complete newcomer-friendly walkthrough, including registration and token setup, read [Run ranked Rumble battles](https://robocode.dev/rumble/client-guide). This README is the technical reference for the source checkout.
+For the complete newcomer-friendly walkthrough, including registration, read [Run ranked Rumble battles](https://robocode.dev/rumble/client-guide). This README is the technical reference for the source checkout.
 
 ## Quickstart (Docker, recommended)
 
@@ -26,15 +26,15 @@ The Rumble client does not currently take a local bot path as input. Its normal 
 5. Check the bundled runtimes: `docker/rumble.sh runtimes`
 6. Resolve the ranked catalog and prepare the bot cache: `docker/rumble.sh sync rumble-client.json`
 7. Run one ranked battle: `docker/rumble.sh run rumble-client.json`
-8. Submit pending results: `export RUMBLE_CLIENT_TOKEN=<your token>` then `docker/rumble.sh submit rumble-client.json`
+8. Prepare pending results for posting: `docker/rumble.sh submit rumble-client.json`. It writes each batch to a plain text file under `.rumble-client/submissions` and prints the result form address. Open the address while signed in to GitHub, paste the whole file into the batch field, press Create, and run `submit` again later to collect the receipt. No token is needed.
 
-On PowerShell, use `docker/rumble.ps1 <validate|runtimes|sync|run|submit> [config-path] [image]` instead — for example `docker/rumble.ps1 run rumble-client.json`, and set `$env:RUMBLE_CLIENT_TOKEN` before `submit`.
+On PowerShell, use `docker/rumble.ps1 <validate|runtimes|sync|run|submit> [config-path] [image]` instead — for example `docker/rumble.ps1 run rumble-client.json`, and no token is needed for `submit`.
 
 Run `docker pull` again to pick up a newer `latest`. To pin a release, pass a version tag as the image argument, for example `docker/rumble.sh run rumble-client.json ghcr.io/robocode-dev/rumble-client:0.1.0`; see [`CHANGELOG.md`](CHANGELOG.md) for what changed in each one. If you want to build the image yourself, see [Building `rumble-client` itself](#building-rumble-client-itself).
 
 Every command runs the container read-only, with capabilities dropped and resource limits applied. Only `runtimes` blocks network access outright; `validate`, `sync`, `run`, and `submit` use normal outbound network because synchronization and submission need it, and `run` re-synchronizes the ranked snapshot before executing a battle.
 
-The client tracks posted batches locally and only drops them once their receipt comment appears on the closed issue; retrying an already-accepted submission is acknowledged idempotently rather than double-submitted.
+The client retains each result until it observes an acceptance receipt from the ingestion workflow and verifies the identical fact in the canonical repository, including compacted monthly rollups. It correlates a posted form with the registered account, prepared title and JSON batch. An open retry remains in flight even when an earlier attempt was rejected. Network failures and API rate limits leave the journal pending; run `submit` again later with the same state directory. A single result exceeding the batch size limit produces an error and remains pending.
 
 ## Building `rumble-client` itself
 
@@ -95,7 +95,7 @@ The build produces native ZIP and TAR archives under `build/distributions/`. Run
 The container and native preflight currently target Java 25, .NET 10, Python 3.14, and Node.js 24 (Node.js installer 24.21.0). This block is refreshed by the scheduled runtime update workflow.
 <!-- runtime-versions:end -->
 
-The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Each game type declares how many bots one catalog entry expands to, so TwinDuel selects two team entries for its four pinned participants while `1v1` and melee select individual bots, and a selection never contains two entries that share a member bot. Run `./gradlew run --args="--run"` to execute one pinned ranked battle through Battle Runner and retain its replay evidence locally. Run `./gradlew run --args="--submit"` to post pending records through the `rumble-data` issue inbox. It reads `RUMBLE_CLIENT_TOKEN` only at runtime; use a GitHub fine-grained token limited to read and write Issues access for that repository. The client records posted batches locally and removes records only after their result-data receipt comments appear. See [Docker and Podman container image](#docker-and-podman-container-image) below for the isolated multi-runtime container.
+The client validates configuration and can synchronize the current ranked input snapshot. Run `./gradlew run --args="--validate-config"` to check local settings, then run `./gradlew run --args="--sync"` to resolve the canonical data repository, validate its engine pin, catalog, client registration, and matchmaking advice, and prepare an immutable bot cache at the catalog's exact source commit. Every cached source tree is checked against its catalog SHA-256 before it can be used. Ranked battle selection uses a recorded random seed, prioritizes under-sampled pairings involving `myBots`, and falls back to distinct active catalog bots when no advice is available. Each game type declares how many bots one catalog entry expands to, so TwinDuel selects two team entries for its four pinned participants while `1v1` and melee select individual bots, and a selection never contains two entries that share a member bot. Run `./gradlew run --args="--run"` to execute one pinned ranked battle through Battle Runner and retain its replay evidence locally. Run `./gradlew run --args="--submit"` to prepare plain text batches for the `rumble-data` result form and collect receipts after posting them. No token is required; an optional `RUMBLE_CLIENT_TOKEN` is used only for read-only API requests and can raise the anonymous request limit. Results remain pending until a workflow receipt and the identical canonical fact are observed. See [Docker and Podman container image](#docker-and-podman-container-image) below for the isolated multi-runtime container.
 
 ## Configuration
 
@@ -128,7 +128,6 @@ Use the launcher scripts for configuration validation, runtime checks, snapshot 
 ./docker/rumble.sh runtimes
 CONTAINER_ENGINE=podman ./docker/rumble.sh runtimes
 ./docker/rumble.sh run rumble-client.json
-export RUMBLE_CLIENT_TOKEN=<your token>
 ./docker/rumble.sh submit rumble-client.json
 ```
 
@@ -138,11 +137,10 @@ export RUMBLE_CLIENT_TOKEN=<your token>
 $env:CONTAINER_ENGINE = 'podman'
 ./docker/rumble.ps1 runtimes
 ./docker/rumble.ps1 run rumble-client.json
-$env:RUMBLE_CLIENT_TOKEN = '<your token>'
 ./docker/rumble.ps1 submit rumble-client.json
 ```
 
-For `validate`, `sync`, `run`, and `submit`, the launcher mounts the configuration file and `.rumble-client` state directory. Keep the state directory writable; it contains the bot cache, journal, and replay evidence. The `runtimes` check uses no network, while `validate`, `sync`, and `run` require network access to synchronize the configured repositories and `submit` requires network access to the GitHub Issues API. Submission forwards `RUMBLE_CLIENT_TOKEN` from the environment and never writes it to disk.
+For `validate`, `sync`, `run`, and `submit`, the launcher mounts the configuration file and `.rumble-client` state directory. Keep the state directory writable; it contains the bot cache, journal, and replay evidence. The `runtimes` check uses no network, while `validate`, `sync`, and `run` require network access to synchronize the configured repositories and `submit` requires network access to read public result issues and their receipts. Submission needs no credential: you post each prepared batch yourself through the result form.
 
 The image contains a pinned Tank Royale Python API and its runtime dependencies in an image-owned virtual environment; no host Python environment or package installation is required. The normal launcher workflow runs the immutable bot sources prepared from the reviewed catalog. For local bot development before submission, use the Tank Royale GUI rather than the Rumble client image. The lower-level containerized Battle Runner can boot bot roots directly for specialized harnesses: mount Java and Python archives read-only, but copy C# and TypeScript archives into writable container storage before booting them because dependency setup may write files and change permissions. This is especially important for Windows bind mounts, where `chmod` can fail with `EPERM`.
 

@@ -4,7 +4,7 @@ The Rumble Client is a Java 17 command-line application packaged as a container 
 
 ## Boundaries and actors
 
-- Contributors provide a JSON configuration, local state storage, and an optional GitHub token for result submission.
+- Contributors provide a JSON configuration and local state storage, and post prepared result batches through the GitHub form. Reading public receipts requires no token; an optional token can raise the API request limit.
 - The Tank Royale data repository supplies the canonical client configuration, engine pin, ranked catalog, matchmaking advice, and bot source archives.
 - The Battle Runner executes the selected bots and produces battle and replay output; the client consumes its published 1.3.1 Maven artifact. Container builds also check out the pinned Tank Royale source to package the matching Python API and schema and to build sample bots for smoke verification.
 - GitHub Issues provide the result inbox and receipt comments used by submission reconciliation.
@@ -18,7 +18,7 @@ The Rumble Client is a Java 17 command-line application packaged as a container 
 - `RumbleSynchronizer`, `RepositoryReader`, `GitRepositoryReader`, `RumbleSnapshotParser`, `SourceTreeHash`, and `BotCachePreparer` resolve the canonical snapshot and prepare an immutable local bot cache.
 - `RankedBattleSelector`, `RankedBattleRecord`, `RankedBattleExecution`, and `RankedJournal` select under-sampled matchups and persist battle state and evidence.
 - `RunnerBattleExecutor` adapts the selected battle to the Tank Royale Battle Runner.
-- `IssueOpsSubmission` and `GitHubIssueOpsTransport` submit pending batches and remove them only after receipt comments confirm acceptance.
+- `IssueOpsSubmission` prepares pending batches for the contributor to post through the form. `GitHubIssueOpsTransport` reads matching issues and workflow receipts; `CanonicalPublishedResults` checks identical canonical raw facts or rollups through `RepositoryReader` before journal acknowledgement.
 - `docker/rumble.sh` and `docker/rumble.ps1` are the supported operational boundary for containerized validation, synchronization, execution, and submission.
 
 ```mermaid

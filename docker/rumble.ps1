@@ -61,12 +61,6 @@ if ($Command -eq 'runtimes') {
         '--mount', "type=bind,source=${stateDirectory},target=/work/.rumble-client"
     )
 }
-if ($Command -eq 'submit') {
-    if (-not (Test-Path env:RUMBLE_CLIENT_TOKEN) -or [string]::IsNullOrEmpty($env:RUMBLE_CLIENT_TOKEN)) {
-        throw 'RUMBLE_CLIENT_TOKEN must be set in the environment to submit results'
-    }
-    $containerArguments += @('--env', 'RUMBLE_CLIENT_TOKEN')
-}
 $containerArguments += $Image
 $containerArguments += $clientArguments
 

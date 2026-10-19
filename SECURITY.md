@@ -8,7 +8,7 @@ The client treats the remote bot catalog, source trees, engine pin, matchmaking 
 
 ## Credentials
 
-The submission token belongs only to the submission phase. Use a fine-grained GitHub token limited to read and write Issues access for `robocode-dev/rumble-data`; never grant repository-content, branch, release, package, or Pages write permission. Supply it through `RUMBLE_CLIENT_TOKEN` at runtime and do not store it in configuration or scripts.
+Submission needs no credential. The client prepares each batch as plain text and you post it yourself through the result form while signed in to GitHub, so the client never holds a token that could write to a repository. Do not hand the client a GitHub token; if `RUMBLE_CLIENT_TOKEN` is set, it is used only to read public issues with a higher request limit.
 
 ## Container execution
 
