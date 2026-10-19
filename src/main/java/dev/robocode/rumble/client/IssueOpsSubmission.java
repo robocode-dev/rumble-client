@@ -34,34 +34,50 @@ final class IssueOpsSubmission {
     private final IssueOpsTransport transport;
     private final Clock clock;
     private final Path submissionDirectory;
+    private final PublishedResults publishedResults;
 
     IssueOpsSubmission(final IssueOpsTransport transport, final Clock clock, final Path submissionDirectory) {
+        this(transport, clock, submissionDirectory, new CanonicalPublishedResults(new GitRepositoryReader()));
+    }
+
+    IssueOpsSubmission(final IssueOpsTransport transport, final Clock clock, final Path submissionDirectory,
+                       final PublishedResults publishedResults) {
         this.transport = transport;
         this.clock = clock;
         this.submissionDirectory = submissionDirectory;
+        this.publishedResults = publishedResults;
     }
 
     SubmissionReport submit(final RankedJournal journal, final RumbleSnapshot snapshot) throws IOException {
         for (final PreparedBatch prepared : journal.unpostedPrepared()) {
             final Optional<SubmittedBatch> posted = transport.findIssue(snapshot.canonicalDataRepository(),
-                    prepared.title(), prepared.battleIds());
+                    prepared, snapshot.registration().account());
             if (posted.isPresent()) {
                 journal.recordSubmission(posted.get(), prepared.title());
             }
         }
         final List<SubmissionStatus> statuses = collectStatuses(journal.unacknowledgedSubmissions(), snapshot);
-        final List<SubmissionReceipt> receipts = statuses.stream().flatMap(status -> status.receipts().stream()).toList();
+        final Set<UUID> claimed = statuses.stream().flatMap(status -> status.receipts().stream())
+                .map(SubmissionReceipt::battleId).collect(Collectors.toSet());
+        final Set<UUID> published = claimed.isEmpty() ? Set.of() : publishedResults.find(
+                snapshot.canonicalDataRepository(), journal.pending().stream()
+                        .filter(record -> claimed.contains(record.battleId())).toList(), snapshot.registration().account());
+        final List<SubmissionReceipt> receipts = statuses.stream().flatMap(status -> status.receipts().stream())
+                .filter(receipt -> published.contains(receipt.battleId())).toList();
         journal.acknowledge(receipts);
-        final Set<UUID> terminal = statuses.stream().filter(SubmissionStatus::terminal)
-                .flatMap(status -> status.batch().battleIds().stream()).collect(Collectors.toSet());
-        final Set<UUID> inFlight = journal.unacknowledgedSubmissions().stream().flatMap(batch -> batch.battleIds().stream())
-                .filter(battleId -> !terminal.contains(battleId))
+        final Set<UUID> inFlight = statuses.stream().filter(status -> !status.terminal()
+                        || status.receipts().stream().anyMatch(receipt -> !published.contains(receipt.battleId())))
+                .flatMap(status -> status.batch().battleIds().stream())
                 .collect(Collectors.toSet());
         journal.unpostedPrepared().forEach(batch -> inFlight.addAll(batch.battleIds()));
         final List<RankedBattleRecord> pending = journal.pending().stream().filter(record -> !inFlight.contains(record.battleId()))
                 .toList();
         Instant stamp = clock.instant().truncatedTo(java.time.temporal.ChronoUnit.MILLIS);
+        final Set<String> titles = journal.preparedTitles();
         for (final List<RankedBattleRecord> batch : batches(pending)) {
+            while (titles.contains(title(batch.get(0), stamp))) {
+                stamp = stamp.plusMillis(1);
+            }
             journal.recordPrepared(new PreparedBatch(title(batch.get(0), stamp), envelope(batch),
                     batch.stream().map(RankedBattleRecord::battleId).toList()));
             stamp = stamp.plusMillis(1);
@@ -99,7 +115,7 @@ final class IssueOpsSubmission {
         return statuses;
     }
 
-    private static List<List<RankedBattleRecord>> batches(final List<RankedBattleRecord> records) {
+    private static List<List<RankedBattleRecord>> batches(final List<RankedBattleRecord> records) throws IOException {
         final Map<ClientIdentity, List<RankedBattleRecord>> grouped = records.stream()
                 .collect(Collectors.groupingBy(RankedBattleRecord::client, java.util.LinkedHashMap::new,
                         Collectors.toList()));
@@ -107,6 +123,10 @@ final class IssueOpsSubmission {
         for (final List<RankedBattleRecord> group : grouped.values()) {
             List<RankedBattleRecord> current = new ArrayList<>();
             for (final RankedBattleRecord record : group) {
+                if (envelope(List.of(record)).length() > MAX_BODY_CHARACTERS) {
+                    throw new IOException("Result " + record.battleId() + " exceeds the submission body limit of "
+                            + MAX_BODY_CHARACTERS + " characters; the record remains pending");
+                }
                 final List<RankedBattleRecord> candidate = new ArrayList<>(current);
                 candidate.add(record);
                 if (!current.isEmpty() && (candidate.size() > MAX_RESULTS_PER_ISSUE
@@ -161,7 +181,7 @@ record PreparedPost(PreparedBatch batch, Path file, String formAddress) {
 
 /** Read-only boundary used by the client to find posted result issues and observe receipt comments. */
 interface IssueOpsTransport {
-    Optional<SubmittedBatch> findIssue(URI repository, String title, List<UUID> battleIds) throws IOException;
+    Optional<SubmittedBatch> findIssue(URI repository, PreparedBatch prepared, String account) throws IOException;
 
     SubmissionStatus status(URI repository, SubmittedBatch batch) throws IOException;
 }

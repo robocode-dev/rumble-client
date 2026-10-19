@@ -91,7 +91,7 @@ class IssueOpsSubmissionTest {
             large.append(record(UUID.randomUUID().toString(), "B".repeat(3000)));
         }
         final SubmissionReport sized = new IssueOpsSubmission(new ContributorIssues(), CLOCK,
-                temporaryDirectory.resolve("large-files")).submit(large, snapshot());
+                temporaryDirectory.resolve("large-files"), IssueOpsSubmissionTest::published).submit(large, snapshot());
         assertTrue(sized.waiting().size() > 1);
         assertTrue(sized.waiting().stream().allMatch(post -> post.batch().body().length()
                 <= IssueOpsSubmission.MAX_BODY_CHARACTERS));
@@ -178,8 +178,80 @@ class IssueOpsSubmissionTest {
         assertEquals(List.of(record), journal.pending());
     }
 
+    @Test
+    @Tag("RCL-006")
+    void rejectedAttemptDoesNotHideOpenRetryAcrossRestarts() throws IOException {
+        final RankedBattleRecord record = record(UUID.randomUUID().toString());
+        new RankedJournal(temporaryDirectory).append(record);
+        final ContributorIssues issues = new ContributorIssues();
+        final PreparedPost first = submission(issues).submit(new RankedJournal(temporaryDirectory), snapshot()).waiting().get(0);
+        issues.post(first.batch().title(), 42, Set.of());
+        issues.closedWithoutReceipts.add(42);
+        final PreparedPost retry = submission(issues).submit(new RankedJournal(temporaryDirectory), snapshot()).waiting().get(0);
+        assertFalse(first.batch().title().equals(retry.batch().title()));
+        issues.post(retry.batch().title(), 43, Set.of());
+        for (int restart = 0; restart < 3; restart++) {
+            assertTrue(submission(issues).submit(new RankedJournal(temporaryDirectory), snapshot()).waiting().isEmpty());
+            assertEquals(List.of(record), new RankedJournal(temporaryDirectory).pending());
+        }
+        issues.post(retry.batch().title(), 43, Set.of(record.battleId()));
+        assertEquals(1, submission(issues).submit(new RankedJournal(temporaryDirectory), snapshot()).receipts().size());
+        assertTrue(new RankedJournal(temporaryDirectory).pending().isEmpty());
+    }
+
+    @Test
+    @Tag("RCL-006")
+    void receiptWithoutPublishedFactRetainsRecordAndDoesNotPrepareAnotherBatch() throws IOException {
+        final RankedBattleRecord record = record(UUID.randomUUID().toString());
+        final RankedJournal journal = new RankedJournal(temporaryDirectory);
+        journal.append(record);
+        final ContributorIssues issues = new ContributorIssues();
+        final PreparedPost post = submission(issues).submit(journal, snapshot()).waiting().get(0);
+        issues.post(post.batch().title(), 42, Set.of(record.battleId()));
+        issues.closedWithoutReceipts.add(42);
+        final IssueOpsSubmission missing = new IssueOpsSubmission(issues, CLOCK, temporaryDirectory.resolve("submissions"),
+                (repository, records, account) -> Set.of());
+        final SubmissionReport report = missing.submit(journal, snapshot());
+        assertTrue(report.receipts().isEmpty());
+        assertTrue(report.waiting().isEmpty());
+        assertEquals(List.of(record), journal.pending());
+        assertEquals(1, submission(issues).submit(journal, snapshot()).receipts().size());
+    }
+
+    @Test
+    @Tag("RCL-006")
+    void interruptedPublicationCheckRetainsRecordForReceiptRecovery() throws IOException {
+        final RankedBattleRecord record = record(UUID.randomUUID().toString());
+        final RankedJournal journal = new RankedJournal(temporaryDirectory);
+        journal.append(record);
+        final ContributorIssues issues = new ContributorIssues();
+        final PreparedPost post = submission(issues).submit(journal, snapshot()).waiting().get(0);
+        issues.post(post.batch().title(), 42, Set.of(record.battleId()));
+        final IssueOpsSubmission offline = new IssueOpsSubmission(issues, CLOCK, temporaryDirectory.resolve("submissions"),
+                (repository, records, account) -> { throw new IOException("offline"); });
+        assertThrows(IOException.class, () -> offline.submit(journal, snapshot()));
+        assertEquals(List.of(record), new RankedJournal(temporaryDirectory).pending());
+        assertEquals(1, submission(issues).submit(new RankedJournal(temporaryDirectory), snapshot()).receipts().size());
+    }
+
+    @Test
+    @Tag("RCL-013")
+    void singleOversizedRecordFailsWithoutLosingPendingRecords() throws IOException {
+        final RankedBattleRecord record = record(UUID.randomUUID().toString(), "B".repeat(60_000));
+        final RankedJournal journal = new RankedJournal(temporaryDirectory);
+        journal.append(record);
+        final IOException error = assertThrows(IOException.class, () -> submission(new ContributorIssues()).submit(journal, snapshot()));
+        assertTrue(error.getMessage().contains(record.battleId().toString()));
+        assertEquals(List.of(record), journal.pending());
+        assertTrue(journal.unpostedPrepared().isEmpty());
+    }
+
     private IssueOpsSubmission submission(final IssueOpsTransport transport) {
-        return new IssueOpsSubmission(transport, CLOCK, temporaryDirectory.resolve("submissions"));
+        return new IssueOpsSubmission(transport, CLOCK, temporaryDirectory.resolve("submissions"), IssueOpsSubmissionTest::published);
+    }
+
+    private static Set<UUID> published(final URI repository, final List<RankedBattleRecord> records, final String account) {
+        return records.stream().map(RankedBattleRecord::battleId).collect(java.util.stream.Collectors.toSet());
     }
 
     private static RumbleSnapshot snapshot() {
@@ -189,7 +261,7 @@ class IssueOpsSubmissionTest {
                 new ClientRegistration("alice", "alice-client"), Map.of());
     }
 
-    private static RankedBattleRecord record(final String battleId) {
+    static RankedBattleRecord record(final String battleId) {
         return record(battleId, "Alpha");
     }
 
@@ -213,14 +285,14 @@ class IssueOpsSubmissionTest {
         }
 
         @Override
-        public Optional<SubmittedBatch> findIssue(final URI repository, final String title,
-                                                  final List<UUID> battleIds) throws IOException {
+        public Optional<SubmittedBatch> findIssue(final URI repository, final PreparedBatch prepared,
+                                                  final String account) throws IOException {
             if (offline) {
                 throw new IOException("offline");
             }
-            final Integer number = numbersByTitle.get(title);
+            final Integer number = numbersByTitle.get(prepared.title());
             return number == null ? Optional.empty() : Optional.of(new SubmittedBatch(number,
-                    "https://github.com/example/rumble-data/issues/" + number, battleIds));
+                    "https://github.com/example/rumble-data/issues/" + number, prepared.battleIds()));
         }
 
         @Override

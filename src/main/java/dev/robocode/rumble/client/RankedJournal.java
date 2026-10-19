@@ -85,6 +85,11 @@ final class RankedJournal {
         appendLine(PREPARED_FILE, entry);
     }
 
+    Set<String> preparedTitles() throws IOException {
+        return entries(PREPARED_FILE).stream().map(entry -> requiredString(entry, "title", PREPARED_FILE))
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
     /** Prepared batches whose issue has not been found yet and which still hold pending results. */
     List<PreparedBatch> unpostedPrepared() throws IOException {
         final Set<UUID> pending = pending().stream().map(RankedBattleRecord::battleId)
