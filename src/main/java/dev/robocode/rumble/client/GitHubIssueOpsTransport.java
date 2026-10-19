@@ -25,6 +25,7 @@ final class GitHubIssueOpsTransport implements IssueOpsTransport {
     private static final String API_VERSION = "2026-03-10";
 
     private static final Pattern JSON_BLOCK = Pattern.compile("```json\\s*\\n(.*?)\\n```", Pattern.DOTALL);
+    private static final long INGESTION_BOT_ID = 41898282L;
 
     private final HttpClient client;
     private final String token;
@@ -79,7 +80,7 @@ final class GitHubIssueOpsTransport implements IssueOpsTransport {
                 final JsonElement body = comment.get("body");
                 final JsonObject user = comment.getAsJsonObject("user");
                 // The ingestion workflow publishes these receipts only after pushing canonical facts.
-                if (user != null && user.has("id") && user.get("id").getAsLong() == 41898282L
+                if (user != null && user.has("id") && user.get("id").getAsLong() == INGESTION_BOT_ID
                         && "github-actions[bot]".equals(user.get("login").getAsString())
                         && "Bot".equals(user.get("type").getAsString())
                         && body != null && body.isJsonPrimitive()) {
@@ -151,7 +152,7 @@ final class GitHubIssueOpsTransport implements IssueOpsTransport {
                 return false;
             }
             final JsonElement envelope = JsonParser.parseString(actual.group(1));
-            return !actual.find() && envelope.equals(JsonParser.parseString(expected.group(1)));
+            return !actual.find() && JsonContract.sameValue(envelope, JsonParser.parseString(expected.group(1)));
         } catch (RuntimeException exception) {
             return false;
         }

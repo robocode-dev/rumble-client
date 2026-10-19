@@ -23,6 +23,35 @@ final class JsonContract {
         this.document = document;
     }
 
+    /** Structural equality without rounding 64-bit selection seeds through floating point. */
+    static boolean sameValue(final JsonElement expected, final JsonElement actual) {
+        if (expected == null || actual == null) {
+            return expected == actual;
+        }
+        if (expected.isJsonObject() && actual.isJsonObject()) {
+            final JsonObject object = expected.getAsJsonObject();
+            return object.size() == actual.getAsJsonObject().size() && object.entrySet().stream()
+                    .allMatch(entry -> sameValue(entry.getValue(), actual.getAsJsonObject().get(entry.getKey())));
+        }
+        if (expected.isJsonArray() && actual.isJsonArray()) {
+            final JsonArray array = expected.getAsJsonArray();
+            if (array.size() != actual.getAsJsonArray().size()) {
+                return false;
+            }
+            for (int index = 0; index < array.size(); index++) {
+                if (!sameValue(array.get(index), actual.getAsJsonArray().get(index))) {
+                    return false;
+                }
+            }
+            return true;
+        }
+        if (expected.isJsonPrimitive() && actual.isJsonPrimitive()
+                && expected.getAsJsonPrimitive().isNumber() && actual.getAsJsonPrimitive().isNumber()) {
+            return expected.getAsBigDecimal().compareTo(actual.getAsBigDecimal()) == 0;
+        }
+        return expected.equals(actual);
+    }
+
     static JsonContract parse(final String json, final String document) {
         try {
             final JsonElement root = JsonParser.parseString(json);

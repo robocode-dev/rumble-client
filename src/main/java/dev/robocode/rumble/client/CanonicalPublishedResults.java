@@ -56,7 +56,7 @@ final class CanonicalPublishedResults implements PublishedResults {
                 expected.remove("schemaVersion");
                 for (final JsonObject fact : facts) {
                     if (fact.has("submittedBy") && account.equalsIgnoreCase(fact.get("submittedBy").getAsString())
-                            && expected.entrySet().stream().allMatch(entry -> entry.getValue().equals(fact.get(entry.getKey())))) {
+                            && expected.entrySet().stream().allMatch(entry -> JsonContract.sameValue(entry.getValue(), fact.get(entry.getKey())))) {
                         published.add(record.battleId());
                         break;
                     }
