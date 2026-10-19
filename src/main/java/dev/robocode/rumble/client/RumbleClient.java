@@ -119,7 +119,6 @@ public final class RumbleClient {
             return;
         }
         output.printf("Configuration %s is valid for %s mode.%n", configurationPath, configuration.mode().displayName());
-        output.println("Battle execution is not available yet.");
     }
 
     private static boolean hasOnlyArgument(final String[] arguments, final String option) {
