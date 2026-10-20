@@ -1,3 +1,8 @@
+---
+type: index
+title: Design
+---
+
 # Design
 
 The client follows a snapshot-first workflow. It validates local configuration, resolves the canonical ranked input snapshot, verifies the engine pin and catalog data, hashes each cached bot source tree against its declared digest, selects a recorded-seed matchup, executes one battle, and persists the result and replay evidence locally before submission.

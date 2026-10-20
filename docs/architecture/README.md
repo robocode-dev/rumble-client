@@ -1,3 +1,8 @@
+---
+type: index
+title: Architecture
+---
+
 # Architecture
 
 The Rumble Client is a Java 17 command-line application packaged as a container image that is published to GHCR and run by default from there; building it locally, or running it through Gradle, remains possible for development. It coordinates local battle execution between the Tank Royale Battle Runner and the shared Rumble data repositories.
