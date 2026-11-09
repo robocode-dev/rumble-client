@@ -18,10 +18,10 @@ permissions:
 jobs:
   validate:
     name: validate
-    uses: cliewen/cliewen/.github/workflows/clue-validation.yml@v0.32.0
+    uses: cliewen/cliewen/.github/workflows/clue-validation.yml@v0.33.0
     with:
       runner: '["ubuntu-latest"]'
-      clue-version: 0.32.0
+      clue-version: 0.33.0
       clue-source: vendored
       clue-install-directory: ''
       # Safe only because the trigger list above includes ready_for_review:
