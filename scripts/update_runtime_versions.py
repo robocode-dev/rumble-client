@@ -39,7 +39,7 @@ def fetch_json(url: str) -> Any:
 
 
 def latest_versions(feeds: Mapping[str, Any]) -> dict[str, str]:
-    """Select the newest versions allowed by the LTS-first runtime policy."""
+    """Select the newest versions allowed by the LTS-first runtime policy, and for Python the newest minor version with an x.y.1 release."""
     try:
         java_lts = max(int(version) for version in feeds["java"]["available_lts_releases"])
         dotnet_lts = max(
@@ -53,12 +53,14 @@ def latest_versions(feeds: Mapping[str, Any]) -> dict[str, str]:
         )
         dotnet_major = dotnet_lts.split(".", maxsplit=1)[0]
 
+        # A Python minor version is taken only once its first patch release, x.y.1, is out: x.y.0 is followed within
+        # weeks by fixes, and builds for it appear over the following weeks.
         python_releases = []
         for release in feeds["python"]:
             match = PYTHON_RELEASE_PATTERN.fullmatch(release["name"])
             if match and release.get("is_published") and not release.get("pre_release"):
                 python_releases.append(tuple(int(part) for part in match.groups()))
-        python_version = max(python_releases)
+        python_version = max(version for version in python_releases if version[2] >= 1)
 
         node_releases = []
         for release in feeds["node"]:

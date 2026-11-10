@@ -2,7 +2,7 @@
 id: CH-004
 type: change
 status: open
-links: [G-001, CAP-001]
+links: [G-001, CAP-001, CAP-004]
 title: The image installs every bot runtime from its official source, and Python moves to a new version only from its first patch release
 ---
 
@@ -32,7 +32,7 @@ A Python minor version is also not ready for the Rumble on its first day. Its fi
 - **Node.js** stays as it is.
 - **Nothing from apt** is a bot runtime. apt still installs the few tools the image needs, such as certificates, `curl`, `git` and `xz-utils`. A download whose checksum does not match stops the build.
 - **The newest patch** of each version line in the list is installed when the image is built, as apt does today. The list keeps naming lines, such as Java 25, .NET 10 and Python 3.14, and the generated block in the README stays as it is.
-- **Python waits for its first patch release.** The refresh moves Python to a new minor version only when that version's x.y.1 release is published. Until then it keeps the newest minor version that has one. With 3.15.0 out and 3.15.1 not yet out, the list stays at 3.14 and the refresh opens no pull request. Java, .NET and Node.js keep their rule: the newest long-term release.
+- **Python waits for its first patch release.** The refresh moves Python to a new minor version only when that version's x.y.1 release is published. Until then it keeps the newest minor version that has one: between 9 and 21 October 2026, with 3.15.0 out and 3.15.1 not yet, the list would have stayed at 3.14. Java, .NET and Node.js keep their rule: the newest long-term release. Python 3.15.1 came out on 21 October 2026, so the refresh of 1 December will propose Python 3.15 in a pull request, and with this change the image can install it; this change itself keeps the list at 3.14.
 - **One place for the Python version** also in the image build. The stage that builds the Python Bot API wheel names `python:3.14-slim` itself today. It will build the wheel with the Python that the list names instead, so no file but the list names a runtime version.
 - **A new capability** describes the image's bot runtimes: where each comes from, how it is checked, and how the refresh chooses versions. The published-image capability keeps only how the image is published.
 - **Documentation:** the README's section on the image and the architecture overview say where the runtimes come from. The changelog gets an entry for the next release.
