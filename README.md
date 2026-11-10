@@ -93,7 +93,7 @@ The build produces native ZIP and TAR archives under `build/distributions/`. Run
 
 ### Supported platform versions
 
-This is the Rumble's one list of the platform versions it supports. The container is built from [`runtime-versions.properties`](src/main/resources/runtime-versions.properties), the native preflight checks against it, and the other Rumble repositories point here instead of repeating it. The Rumble follows the newest LTS of each platform, and players upgrade when it moves on.
+This is the Rumble's one list of the platform versions it supports. The container is built from [`runtime-versions.properties`](src/main/resources/runtime-versions.properties), the native preflight checks against it, and the other Rumble repositories point here instead of repeating it. The Rumble follows the newest LTS of Java, .NET and Node.js, and the newest Python version once its first patch release (x.y.1) is out; players upgrade when it moves on. The image downloads each runtime from its official source and checks it against the checksum that source publishes: the Eclipse Temurin JDK from Adoptium, the .NET SDK from Microsoft, CPython as Astral's [python-build-standalone](https://github.com/astral-sh/python-build-standalone) build, and Node.js from nodejs.org. See [`docker/install-runtimes.sh`](docker/install-runtimes.sh).
 
 <!-- runtime-versions:start -->
 The container and native preflight currently target Java 25, .NET 10, Python 3.14, and Node.js 24 (Node.js installer 24.21.0). This block is refreshed by the scheduled runtime update workflow.

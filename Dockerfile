@@ -16,54 +16,48 @@ RUN test -n "$TANK_ROYALE_COMMIT" \
         -Dorg.gradle.java.installations.paths=/opt/java/openjdk,/opt/java/openjdk-11 \
         -PtankRoyaleSource=/tank-royale installDist
 
-FROM docker.io/library/python:3.14-slim AS python-api
+# The bot runtimes, each from its official source at the version the runtime list names; see docker/install-runtimes.sh.
+# apt installs only tools and the libraries the runtimes need, never a runtime.
+FROM docker.io/library/ubuntu:26.04 AS runtimes
+ARG TARGETARCH
+COPY src/main/resources/runtime-versions.properties /tmp/runtime-versions.properties
+COPY docker/install-runtimes.sh /tmp/install-runtimes.sh
+RUN set -eux \
+    && apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
+        ca-certificates curl git jq libstdc++6 tzdata xz-utils zlib1g \
+    && icu="$(apt-cache search --names-only '^libicu[0-9]+$' | cut -d ' ' -f 1 | sort -V | tail -n 1)" \
+    && test -n "$icu" \
+    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends "$icu" \
+    && bash /tmp/install-runtimes.sh /tmp/runtime-versions.properties "$TARGETARCH" \
+    && apt-get purge --yes --auto-remove jq \
+    && rm -rf /var/lib/apt/lists/* /tmp/*
+
+ENV JAVA_HOME=/opt/java
+ENV DOTNET_ROOT=/opt/dotnet
+ENV PATH="/opt/java/bin:/opt/dotnet:${PATH}"
+
+# The Python Bot API wheel, built with the Python the runtime list names, in a build environment of its own.
+FROM runtimes AS python-api
 COPY --from=build /tank-royale/VERSION /tank-royale/VERSION
 COPY --from=build /tank-royale/schema/schemas /tank-royale/schema/schemas
 COPY --from=build /tank-royale/bot-api/python /tank-royale/bot-api/python
 WORKDIR /tank-royale/bot-api/python
-RUN python -m pip install --no-cache-dir --upgrade pip build PyYAML \
-    && python scripts/update_version.py \
-    && python scripts/schema_to_python.py \
+RUN /opt/python/bin/python3 -m venv /tmp/build-python \
+    && /tmp/build-python/bin/python -m pip install --no-cache-dir --upgrade pip build PyYAML \
+    && /tmp/build-python/bin/python scripts/update_version.py \
+    && /tmp/build-python/bin/python scripts/schema_to_python.py \
         -d ../../schema/schemas \
         -o generated/robocode_tank_royale/schema \
-    && python -m build --wheel --outdir /out
+    && /tmp/build-python/bin/python -m build --wheel --outdir /out
 
-FROM docker.io/library/ubuntu:26.04
-ARG TARGETARCH
-COPY src/main/resources/runtime-versions.properties /tmp/runtime-versions.properties
+FROM runtimes
 COPY --from=python-api /out/robocode_tank_royale-*.whl /tmp/
 
 RUN set -eux \
-    && JAVA_VERSION="$(sed -n 's/^java=//p' /tmp/runtime-versions.properties | tr -d '\r')" \
-    && DOTNET_VERSION="$(sed -n 's/^dotnet=//p' /tmp/runtime-versions.properties | tr -d '\r')" \
-    && PYTHON_VERSION="$(sed -n 's/^python=//p' /tmp/runtime-versions.properties | tr -d '\r')" \
-    && NODE_MAJOR="$(sed -n 's/^node=//p' /tmp/runtime-versions.properties | tr -d '\r')" \
-    && PYTHON_BIN="/usr/bin/python${PYTHON_VERSION}" \
-    && NODE_VERSION="$(sed -n 's/^nodeInstaller=//p' /tmp/runtime-versions.properties | tr -d '\r')" \
-    && test -n "$JAVA_VERSION" \
-    && test -n "$DOTNET_VERSION" \
-    && test -n "$PYTHON_VERSION" \
-    && test -n "$NODE_MAJOR" \
-    && test -n "$NODE_VERSION" \
-    && test "${NODE_VERSION%%.*}" = "$NODE_MAJOR" \
-    && apt-get update \
-    && DEBIAN_FRONTEND=noninteractive apt-get install --yes --no-install-recommends \
-        ca-certificates curl "dotnet-sdk-${DOTNET_VERSION}.0" git \
-        "openjdk-${JAVA_VERSION}-jdk-headless" "python${PYTHON_VERSION}" "python${PYTHON_VERSION}-venv" xz-utils \
-    && case "$TARGETARCH" in amd64) node_arch=x64 ;; arm64) node_arch=arm64 ;; *) exit 1 ;; esac \
-    && node_archive="node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
-    && curl --fail --location --proto '=https' --tlsv1.2 \
-        "https://nodejs.org/dist/v${NODE_VERSION}/${node_archive}" --output "/tmp/${node_archive}" \
-    && curl --fail --location --proto '=https' --tlsv1.2 \
-        "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" --output /tmp/SHASUMS256.txt \
-    && grep " ${node_archive}$" /tmp/SHASUMS256.txt | (cd /tmp && sha256sum --check --strict -) \
-    && tar --extract --xz --file "/tmp/${node_archive}" --directory /usr/local --strip-components=1 \
-    && test -x "$PYTHON_BIN" \
-    && "$PYTHON_BIN" -m venv /opt/rumble-python \
+    && /opt/python/bin/python3 -m venv /opt/rumble-python \
     && /opt/rumble-python/bin/python -m pip install --no-cache-dir /tmp/robocode_tank_royale-*.whl \
-    && ln -sfn python /opt/rumble-python/bin/python3 \
-    && ln -sfn "$PYTHON_BIN" "/opt/rumble-python/bin/python${PYTHON_VERSION}" \
-    && rm -rf /var/lib/apt/lists/* /tmp/* \
+    && rm -rf /tmp/* \
     && groupadd --gid 10001 rumble \
     && useradd --uid 10001 --gid rumble --no-create-home --home-dir /tmp --shell /usr/sbin/nologin rumble
 

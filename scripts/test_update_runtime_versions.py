@@ -51,6 +51,21 @@ class RuntimeUpdaterTest(unittest.TestCase):
             MODULE.latest_versions(self.feeds),
         )
 
+    def test_python_moves_to_a_new_minor_version_only_from_its_first_patch_release(self) -> None:
+        self.feeds["python"].append({"name": "Python 3.15.0", "is_published": True, "pre_release": False})
+        self.assertEqual("3.14", MODULE.latest_versions(self.feeds)["python"], "3.15.0 alone is not enough")
+
+        self.feeds["python"].append({"name": "Python 3.15.1", "is_published": False, "pre_release": False})
+        self.assertEqual("3.14", MODULE.latest_versions(self.feeds)["python"], "an unpublished 3.15.1 does not count")
+
+        self.feeds["python"].append({"name": "Python 3.15.1", "is_published": True, "pre_release": False})
+        self.assertEqual("3.15", MODULE.latest_versions(self.feeds)["python"], "3.15.1 is out, so the list moves to 3.15")
+
+    def test_python_with_no_patch_release_at_all_is_an_error(self) -> None:
+        self.feeds["python"] = [{"name": "Python 3.15.0", "is_published": True, "pre_release": False}]
+        with self.assertRaises(MODULE.RuntimeFeedError):
+            MODULE.latest_versions(self.feeds)
+
     def test_updates_properties_and_readme(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)

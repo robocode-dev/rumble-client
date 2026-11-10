@@ -17,4 +17,5 @@ A whole capability whose extracted criteria are not ready may stay `status: draf
 
 <!-- clue:index:start -->
 - [CAP-001-published-container-image/](CAP-001-published-container-image/README.md)
+- [CAP-004-bot-runtimes-in-the-image/](CAP-004-bot-runtimes-in-the-image/README.md)
 <!-- clue:index:end -->
