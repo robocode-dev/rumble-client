@@ -34,3 +34,11 @@ events:
     - {id: AC-002, kind: numeric, state: live, prefix: AC, component: "2"}
     - {id: AC-003, kind: numeric, state: live, prefix: AC, component: "3"}
     - {id: AC-004, kind: numeric, state: live, prefix: AC, component: "4"}
+    - {id: CH-004, kind: numeric, state: reserved, prefix: CH, component: "4"}
+    - {id: AC-005, kind: numeric, state: reserved, prefix: AC, component: "5"}
+    - {id: AC-006, kind: numeric, state: reserved, prefix: AC, component: "6"}
+    - {id: AC-007, kind: numeric, state: reserved, prefix: AC, component: "7"}
+    - {id: CAP-004, kind: numeric, state: reserved, prefix: CAP, component: "4"}
+    - {id: CH-004, kind: numeric, state: live, prefix: CH, component: "4"}
+    - {id: CH-004-tasks, kind: opaque, state: live}
+    - {id: CH-004-open-questions, kind: opaque, state: live}
