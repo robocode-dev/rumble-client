@@ -27,15 +27,23 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - name: Read the Rumble's supported runtime versions
+        id: runtimes
+        shell: bash
+        # The one list of the versions the Rumble supports; nothing else in this workflow names them.
+        run: |
+          for name in java dotnet python node; do
+            echo "$name=$(sed -n "s/^$name=//p" src/main/resources/runtime-versions.properties | tr -d '\r')" >> "$GITHUB_OUTPUT"
+          done
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: ${{ steps.runtimes.outputs.python }}
       - uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: ${{ steps.runtimes.outputs.dotnet }}.0.x
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
+          node-version: ${{ steps.runtimes.outputs.node }}
       - name: Build four-language smoke bots
         run: bash scripts/build-sample-bots.sh tank-royale-source
       - uses: docker/setup-buildx-action@v3

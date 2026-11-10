@@ -18,9 +18,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Read the Rumble's supported runtime versions
+        id: current
+        shell: bash
+        # The one list of the versions the Rumble supports; nothing else in this workflow names them.
+        run: |
+          for name in java dotnet python node; do
+            echo "$name=$(sed -n "s/^$name=//p" src/main/resources/runtime-versions.properties | tr -d '\r')" >> "$GITHUB_OUTPUT"
+          done
       - uses: actions/setup-python@v5
         with:
-          python-version: '3.14'
+          python-version: ${{ steps.current.outputs.python }}
       - name: Update runtime policy from official feeds
         run: python scripts/update_runtime_versions.py
       - name: Detect runtime changes
@@ -45,6 +53,15 @@ jobs:
           ref: ${{ steps.pin.outputs.commit }}
           path: tank-royale-source
           persist-credentials: false
+      - name: Read the refreshed runtime versions
+        if: steps.changes.outputs.changed == 'true'
+        id: runtimes
+        shell: bash
+        # The one list of the versions the Rumble supports; nothing else in this workflow names them.
+        run: |
+          for name in java dotnet python node; do
+            echo "$name=$(sed -n "s/^$name=//p" src/main/resources/runtime-versions.properties | tr -d '\r')" >> "$GITHUB_OUTPUT"
+          done
       - uses: actions/setup-java@v5
         if: steps.changes.outputs.changed == 'true'
         with:
@@ -53,11 +70,11 @@ jobs:
       - uses: actions/setup-dotnet@v4
         if: steps.changes.outputs.changed == 'true'
         with:
-          dotnet-version: '10.0.x'
+          dotnet-version: ${{ steps.runtimes.outputs.dotnet }}.0.x
       - uses: actions/setup-node@v4
         if: steps.changes.outputs.changed == 'true'
         with:
-          node-version: '24'
+          node-version: ${{ steps.runtimes.outputs.node }}
       - name: Build sample bots
         if: steps.changes.outputs.changed == 'true'
         run: bash scripts/build-sample-bots.sh tank-royale-source
