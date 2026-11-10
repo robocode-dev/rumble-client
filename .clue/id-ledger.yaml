@@ -42,6 +42,9 @@ events:
     - {id: CH-004, kind: numeric, state: live, prefix: CH, component: "4"}
     - {id: CH-004-tasks, kind: opaque, state: live}
     - {id: CH-004-open-questions, kind: opaque, state: live}
+    - {id: CH-004, kind: numeric, state: retired, prefix: CH, component: "4"}
+    - {id: CH-004-tasks, kind: opaque, state: retired}
+    - {id: CH-004-open-questions, kind: opaque, state: retired}
     - {id: CAP-005, kind: numeric, state: reserved, prefix: CAP, component: "5"}
     - {id: CAP-006, kind: numeric, state: reserved, prefix: CAP, component: "6"}
     - {id: CAP-004, kind: numeric, state: live, prefix: CAP, component: "4"}
