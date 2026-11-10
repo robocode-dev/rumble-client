@@ -12,4 +12,4 @@ title: Install every bot runtime from its official source and let Python wait fo
 - [x] Let the refresh move Python to a new minor version only from its x.y.1 release, with unit tests.
 - [x] Update the README, the architecture overview, the published-image capability and the changelog.
 - [x] Build the image locally and run the container verification and the unit tests; validate the corpus.
-- [ ] Hand the maintainer the runs to judge the criteria by.
+- [x] Hand the maintainer the runs to judge the criteria by.

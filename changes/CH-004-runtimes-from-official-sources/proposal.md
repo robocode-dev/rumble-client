@@ -71,3 +71,13 @@ The refresh's choice of versions is also covered by the updater's Python unit te
 ## Identity allocation
 
 The change, its three criteria and the new capability were allocated locally in this clone. The remote had no other `ch-*` branch and no `clue/id-allocator` branch when it was read. The reservations are visible only in this clone until the change is pushed, so `clue id coordinate` comes before a second contributor starts.
+
+## Human evidence
+
+For the three criteria of the bot runtimes in the image: the image installs every bot runtime from its official source, it runs a battle on every platform, and the refresh moves Python only from its first patch release.
+
+- **Observer:** the maintainer, judging from the author's report of runs made on the maintainer's computer on 10 November 2026; the maintainer did not run the image or the checks themselves.
+- **Conditions:** Docker Desktop 29.7.2 on Windows 11, the image built for amd64 from this change's Dockerfile with the pinned Tank Royale commit, and the container verification run from Git Bash with the Tank Royale checkout beside this repository.
+- **Reported:** the build downloaded the Eclipse Temurin JDK 25.0.5 from Adoptium, the .NET SDK 10.0.404 from Microsoft, CPython 3.14.10 as Astral's standalone build and Node.js 24.21.0 from nodejs.org, and each passed its checksum check; the built image held no Java, .NET, Python or Node.js package from apt. A wrong checksum and a missing checksum each made the checksum check fail. The container verification reported Java 25, .NET 10, Python 3.14 and Node.js 24 as required, confirmed that the image does not run as root, and ran four one-round battles: Python against Java, Java against Python, C# against Java and TypeScript against Java, all of which finished. The updater's unit tests passed, and two of them failed when the Python rule was removed. A dry run of the refresh against the live feeds, written to copies only, chose Python 3.15 and Node.js 26, because Python 3.15.1 came out on 21 October 2026 and Node.js 26 is now a long-term release.
+- **Judgment:** the maintainer approved the criteria on that report.
+- **Not observed:** an arm64 build, a run of the refresh workflow on GitHub, the publish workflow, and the image on Podman.
