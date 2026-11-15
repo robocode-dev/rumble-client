@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-15
+
 ### Changed
 
 - The image downloads Java (Eclipse Temurin from Adoptium), .NET (the SDK from Microsoft) and Python (CPython as Astral's python-build-standalone build) from their official sources and checks each against its published checksum, as it already did for Node.js, instead of installing them from Ubuntu's packages. The image can now hold a new runtime version as soon as the runtime list names it.
