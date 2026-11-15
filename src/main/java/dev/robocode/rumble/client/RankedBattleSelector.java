@@ -19,14 +19,14 @@ final class RankedBattleSelector {
         final GameTypeSettings settings = requireSettings(snapshot, gameType);
         final MatchAdvice advice = requireAdvice(snapshot, gameType);
         final List<CatalogBot> availableBots = snapshot.catalog().activeBots().values().stream()
-                .filter(bot -> bot.isTeam() == gameType.isTeamGame())
+                .filter(bot -> bot.playsGameType(gameType))
                 .sorted(Comparator.comparing(CatalogBot::displayName))
                 .toList();
         final int requiredEntries = requiredEntries(gameType, settings);
         if (availableBots.size() < requiredEntries) {
             throw new IllegalArgumentException("Game type " + gameType.contractName() + " requires "
                     + requiredEntries + " distinct active "
-                    + (gameType.isTeamGame() ? "teams" : "bots") + ", but the catalog contains "
+                    + (gameType.isTeamGame() ? "teams" : "bots") + " that play it, but the catalog contains "
                     + availableBots.size());
         }
 

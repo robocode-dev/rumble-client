@@ -32,15 +32,33 @@ record BotCatalog(URI source, String sourceCommit, Map<String, CatalogBot> activ
     }
 }
 
+/**
+ * An active catalog entry.
+ *
+ * @param gameTypes the game types the entry declares; empty when it declares none and so plays every game type of
+ *                  its kind.
+ */
 record CatalogBot(String name, String version, String platform, String path, String sourceHash,
-                  List<String> teamMembers) {
+                  List<String> teamMembers, List<String> gameTypes) {
     CatalogBot {
         teamMembers = List.copyOf(teamMembers);
+        gameTypes = List.copyOf(gameTypes);
+    }
+
+    CatalogBot(final String name, final String version, final String platform, final String path,
+               final String sourceHash, final List<String> teamMembers) {
+        this(name, version, platform, path, sourceHash, teamMembers, List.of());
     }
 
     CatalogBot(final String name, final String version, final String platform, final String path,
                final String sourceHash) {
         this(name, version, platform, path, sourceHash, List.of());
+    }
+
+    /** Returns whether this entry may take part in a ranked battle of the game type. */
+    boolean playsGameType(final GameType gameType) {
+        return isTeam() == gameType.isTeamGame()
+                && (gameTypes.isEmpty() || gameTypes.contains(gameType.contractName()));
     }
 
     String displayName() {

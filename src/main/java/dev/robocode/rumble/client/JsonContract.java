@@ -122,6 +122,12 @@ final class JsonContract {
         return value.getAsJsonArray();
     }
 
+    /** Returns whether the field is present with a non-null value. */
+    boolean has(final String field) {
+        final JsonElement value = object.get(field);
+        return value != null && !value.isJsonNull();
+    }
+
     JsonArray optionalArray(final String field) {
         final JsonElement value = object.get(field);
         if (value == null || value.isJsonNull()) {

@@ -15,6 +15,7 @@ import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class RumbleSynchronizerTest {
     private static final URI PREVIOUS_REPOSITORY = URI.create("https://github.com/example/previous-data");
@@ -138,6 +139,71 @@ class RumbleSynchronizerTest {
 
         assertThrows(IllegalArgumentException.class,
                 () -> new RumbleSynchronizer(repositories).synchronize(configuration()));
+    }
+
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationPositive_readsDeclaredCatalogGameTypes() throws IOException {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        repositories.replace(CANONICAL_REPOSITORY, "catalog.json",
+                repositories.read(CANONICAL_REPOSITORY, "catalog.json")
+                        .replace("\"path\": \"bots/java/Alpha\",", "\"path\": \"bots/java/Alpha\", \"gameTypes\": [\"1v1\", \"melee\"],"));
+
+        final RumbleSnapshot snapshot = new RumbleSynchronizer(repositories).synchronize(configuration());
+
+        assertEquals(List.of("1v1", "melee"), snapshot.catalog().activeBots().get("Alpha 1.0").gameTypes());
+        assertEquals(List.of(), snapshot.catalog().activeBots().get("Bravo 1.0").gameTypes());
+    }
+
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationNegative_rejectsMalformedCatalogGameTypes() {
+        for (final String gameTypes : List.of("[\"\"]", "[]", "\"1v1\"")) {
+            final InMemoryRepositoryReader repositories = withAlphaGameTypes(gameTypes);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> new RumbleSynchronizer(repositories).synchronize(configuration()), gameTypes);
+        }
+    }
+
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationPositive_dropsAdviceForABotOutsideItsGameTypes() throws IOException {
+        // The 1v1 advice pairs Alpha with Bravo, but Alpha now declares only melee.
+        final RumbleSnapshot snapshot = new RumbleSynchronizer(withAlphaGameTypes("[\"melee\"]"))
+                .synchronize(configuration());
+
+        assertEquals(List.of(), snapshot.advice().get(GameType.ONE_VS_ONE).priorityPairs());
+    }
+
+    @Test
+    @Tag("RCL-002")
+    void testRCL002_IntegrationNegative_rejectsTeamWhoseMemberDoesNotDeclareTwinDuel() throws IOException {
+        final InMemoryRepositoryReader rejected = withTeam(withAlphaGameTypes("[\"1v1\"]"));
+        final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> new RumbleSynchronizer(rejected).synchronize(configuration()));
+        assertTrue(failure.getMessage().contains("does not declare twinduel: Alpha 1.0"), failure.getMessage());
+
+        final InMemoryRepositoryReader accepted = withTeam(withAlphaGameTypes("[\"1v1\", \"twinduel\"]"));
+        assertEquals(List.of("Alpha 1.0", "Bravo 1.0"), new RumbleSynchronizer(accepted).synchronize(configuration())
+                .catalog().activeBots().get("Duo 1.0").teamMembers());
+    }
+
+    private static InMemoryRepositoryReader withAlphaGameTypes(final String gameTypes) {
+        final InMemoryRepositoryReader repositories = validRepositories();
+        repositories.replace(CANONICAL_REPOSITORY, "catalog.json",
+                repositories.read(CANONICAL_REPOSITORY, "catalog.json").replace("\"path\": \"bots/java/Alpha\",",
+                        "\"path\": \"bots/java/Alpha\", \"gameTypes\": " + gameTypes + ","));
+        return repositories;
+    }
+
+    private static InMemoryRepositoryReader withTeam(final InMemoryRepositoryReader repositories) {
+        repositories.replace(CANONICAL_REPOSITORY, "catalog.json",
+                repositories.read(CANONICAL_REPOSITORY, "catalog.json").replace("\"bots\": [",
+                        "\"bots\": [{\"name\": \"Duo\", \"version\": \"1.0\", \"platform\": \"Java\", \"path\": \"bots/java/Duo\","
+                                + " \"sourceHash\": \"sha256:" + "c".repeat(64) + "\", \"status\": \"active\","
+                                + " \"teamMembers\": [\"Alpha 1.0\", \"Bravo 1.0\"], \"gameTypes\": [\"twinduel\"]},"));
+        return repositories;
     }
 
     @Test

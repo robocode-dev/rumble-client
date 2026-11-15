@@ -95,7 +95,8 @@ final class RumbleSnapshotParser {
                     bot.string("platform"), validatedBotPath(bot.string("path")),
                     matching(bot.string("sourceHash"), SHA_256,
                     "catalog bot sourceHash must be sha256:<64 lowercase hex>"),
-                    parseTeamMembers(bot.optionalArray("teamMembers")));
+                    parseTeamMembers(bot.optionalArray("teamMembers")),
+                    parseGameTypes(bot));
             if (activeBots.putIfAbsent(entry.displayName(), entry) != null) {
                 throw JsonContract.invalid("catalog.json contains duplicate active bot " + entry.displayName());
             }
@@ -122,6 +123,26 @@ final class RumbleSnapshotParser {
         return members;
     }
 
+    /**
+     * Reads the declared game types; an absent field means none are declared. Unknown names are kept, so that a game
+     * type added later does not make this client reject the whole catalog; such a name simply matches no battle.
+     */
+    private static List<String> parseGameTypes(final JsonContract bot) {
+        final JsonArray values = bot.optionalArray("gameTypes");
+        if (values.isEmpty() && bot.has("gameTypes")) {
+            throw JsonContract.invalid("catalog bot gameTypes must not be empty");
+        }
+        final List<String> gameTypes = new ArrayList<>();
+        for (final JsonElement value : values) {
+            if (!value.isJsonPrimitive() || !value.getAsJsonPrimitive().isString()
+                    || value.getAsString().isBlank()) {
+                throw JsonContract.invalid("catalog bot gameTypes must contain non-blank strings");
+            }
+            gameTypes.add(value.getAsString());
+        }
+        return gameTypes;
+    }
+
     private static void validateTeamMembers(final Map<String, CatalogBot> activeBots) {
         for (final CatalogBot team : activeBots.values().stream().filter(CatalogBot::isTeam).toList()) {
             for (final String memberIdentity : team.teamMembers()) {
@@ -133,6 +154,10 @@ final class RumbleSnapshotParser {
                 if (member.isTeam()) {
                     throw JsonContract.invalid("catalog team " + team.displayName()
                             + " references another team: " + memberIdentity);
+                }
+                if (!member.gameTypes().isEmpty() && !member.gameTypes().contains(GameType.TWIN_DUEL.contractName())) {
+                    throw JsonContract.invalid("catalog team " + team.displayName() + " references a member that does not"
+                            + " declare " + GameType.TWIN_DUEL.contractName() + ": " + memberIdentity);
                 }
             }
         }
@@ -229,7 +254,10 @@ final class RumbleSnapshotParser {
             if (!ADVICE_REASONS.contains(reason)) {
                 throw JsonContract.invalid(path + " priority pair has unsupported reason: " + reason);
             }
-            pairs.add(new PriorityPair(catalogBots, have, reason));
+            // Advice generated before a bot narrowed its game types may still pair it; such a pair is not playable.
+            if (catalogBots.stream().allMatch(catalogBot -> catalogBot.playsGameType(expectedGameType))) {
+                pairs.add(new PriorityPair(catalogBots, have, reason));
+            }
         }
         return new MatchAdvice(actualGameType, projectionId, target, pairs);
     }

@@ -134,6 +134,63 @@ class RankedBattleSelectorTest {
                 .select(snapshot, configuration(Set.of()), GameType.MELEE, RANDOM_SEED));
     }
 
+    @Test
+    @Tag("RCL-010")
+    void testRCL010_UnitPositive_selectsOnlyBotsThatDeclareTheGameType() {
+        final RumbleSnapshot snapshot = declaring(snapshot(12, false), "Bot 01", List.of("1v1"));
+        final RankedBattleSelector selector = new RankedBattleSelector();
+        boolean duelIncludedBot01 = false;
+
+        for (long seed = 0; seed < 50; seed++) {
+            final BattleSelection melee = selector.select(snapshot, configuration(Set.of()), GameType.MELEE, seed);
+            assertEquals(10, melee.participants().size());
+            assertTrue(melee.participants().stream().noneMatch(bot -> bot.name().equals("Bot 01")));
+            duelIncludedBot01 |= selector.select(snapshot, configuration(Set.of()), GameType.ONE_VS_ONE, seed)
+                    .participants().stream().anyMatch(bot -> bot.name().equals("Bot 01"));
+        }
+
+        assertTrue(duelIncludedBot01, "a bot declaring 1v1 must still be selectable for 1v1");
+    }
+
+    @Test
+    @Tag("RCL-010")
+    void testRCL010_UnitNegative_rejectsMeleeWhenTooFewBotsDeclareIt() {
+        final RumbleSnapshot snapshot = declaring(snapshot(10, false), "Bot 01", List.of("1v1"));
+
+        final IllegalArgumentException failure = assertThrows(IllegalArgumentException.class,
+                () -> new RankedBattleSelector().select(snapshot, configuration(Set.of()), GameType.MELEE, RANDOM_SEED));
+
+        assertTrue(failure.getMessage().contains("10 distinct active bots that play it, but the catalog contains 9"),
+                failure.getMessage());
+    }
+
+    @Test
+    @Tag("RCL-010")
+    void testRCL010_UnitPositive_teamsPlayOnlyTwinDuelAndUndeclaredBotsPlayEveryIndividualType() {
+        final CatalogBot undeclared = new CatalogBot("Solo", "1.0", "Java", "bots/java/Solo", "sha256:" + "0".repeat(64));
+        final CatalogBot team = new CatalogBot("Pair", "1.0", "Java", "bots/java/Pair", "sha256:" + "1".repeat(64),
+                List.of("A 1.0", "B 1.0"), List.of("twinduel"));
+
+        assertTrue(undeclared.playsGameType(GameType.ONE_VS_ONE));
+        assertTrue(undeclared.playsGameType(GameType.MELEE));
+        assertTrue(!undeclared.playsGameType(GameType.TWIN_DUEL));
+        assertTrue(team.playsGameType(GameType.TWIN_DUEL));
+        assertTrue(!team.playsGameType(GameType.ONE_VS_ONE));
+    }
+
+    private static RumbleSnapshot declaring(final RumbleSnapshot snapshot, final String name,
+                                            final List<String> gameTypes) {
+        final Map<String, CatalogBot> bots = new LinkedHashMap<>();
+        snapshot.catalog().activeBots().values().stream()
+                .sorted(Comparator.comparing(CatalogBot::displayName))
+                .map(bot -> bot.name().equals(name) ? new CatalogBot(bot.name(), bot.version(), bot.platform(),
+                        bot.path(), bot.sourceHash(), bot.teamMembers(), gameTypes) : bot)
+                .forEach(bot -> bots.put(bot.displayName(), bot));
+        return new RumbleSnapshot(snapshot.canonicalDataRepository(), snapshot.dataRevision(), snapshot.engine(),
+                new BotCatalog(snapshot.catalog().source(), snapshot.catalog().sourceCommit(), bots),
+                snapshot.registration(), snapshot.advice());
+    }
+
     private static RumbleSnapshot snapshot(final int botCount, final boolean withAdvice) {
         final Map<String, CatalogBot> bots = new LinkedHashMap<>();
         for (int index = 1; index <= botCount; index++) {
